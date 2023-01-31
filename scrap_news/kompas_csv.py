@@ -8,14 +8,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException
 import time
 import pandas as pd
-import mysql.connector
-
-db = mysql.connector.connect(
-    host= "localhost",
-    user= "root",
-    password= "",
-    database="scrap_berita"
-)
+from csv import writer
 
 PATCH = 'D:\AMAGHFIRA\python-project\scrap_news\chromedriver108.exe'
 
@@ -65,15 +58,11 @@ for word in keywords :
         berita=[]
         
         # GET CONTENTS 
-        # for data in halamans:
-        for i in range(1,len(halamans)):
-            # driver1 = webdriver.Chrome(PATCH)
+        for i in range(4,len(halamans)):
             link = driver.find_element(By.CSS_SELECTOR, value="#___gcse_0 > div > div > div > div.gsc-wrapper > div.gsc-resultsbox-visible > div > div > div.gsc-expansionArea > div:nth-child("+str(i)+") > div.gs-webResult.gs-result > div.gsc-thumbnail-inside > div > a").get_attribute('href')
             print(link)
             driver1 = webdriver.Chrome(PATCH)
             driver1.get(link)
-            
-            # link = data.find_element(By.CSS_SELECTOR, "#___gcse_0 > div > div > div > div.gsc-wrapper > div.gsc-resultsbox-visible > div > div > div.gsc-expansionArea > div:nth-child(1) > div.gs-webResult.gs-result > div.gsc-thumbnail-inside > div > a").get_attribute('href')
             
             try: 
                 judul = driver1.find_element(By.CSS_SELECTOR, 'body > div.wrap > div.container.clearfix > div:nth-child(3) > div > h1').text
@@ -81,18 +70,20 @@ for word in keywords :
                 isi = driver1.find_element(By.CSS_SELECTOR, 'body > div.wrap > div.container.clearfix > div.row.col-offset-fluid.clearfix.js-giant-wp-sticky-parent > div.col-bs10-7.js-read-article > div.read__article.mt2.clearfix.js-tower-sticky-parent > div.col-bs9-7 > div.read__content > div').text
                 sumber = 'kompas.com'
                 
+                List = [judul,tanggal,isi,sumber]
+                with open('D:\AMAGHFIRA\python-project\scrap_news\datanew.csv', 'a') as f_object:
+                    # Pass this file object to csv.writer()
+                    # and get a writer object
+                    writer_object = writer(f_object)
                 
-                # INSERT INTO DB 
-                mycursor = db.cursor()
-                query = "INSERT INTO berita_20230111(judul,tanggal,isi,sumber) VALUES (%s,%s,%s,%s)"
-                val = (judul,tanggal,isi,sumber)
-                mycursor.execute(query,val)
-                db.commit()
-                print(mycursor.rowcount, "record inserted.")
-            
+                    # Pass the list as an argument into
+                    # the writerow()
+                    writer_object.writerow(List)
+                
+                    # Close the file object
+                    f_object.close()
                 driver1.close()
             except NoSuchElementException:
                 pass
 
-print("Data berhasil disimpan KE DATABASE")
 driver.close()

@@ -1,0 +1,1 @@
+cmd /k "cd /d C:\Python310 & C:\Python310\python.exe kompas_csv.py"
