@@ -10,7 +10,7 @@ import time
 import pandas as pd
 from csv import writer
 
-PATCH = 'D:\AMAGHFIRA\python-project\scrap_news\chromedriver108.exe'
+PATCH = 'D:\AMAGHFIRA\python-project\scrap_news\chromedriver117.exe'
 
 def wait_element(d, time, sel):
     element = WebDriverWait(d, time).until(EC.presence_of_element_located((By.CSS_SELECTOR, sel)))
@@ -25,7 +25,7 @@ time.sleep(3)
 
 # ARRAY OF KEYWORDS 
 keywords = [
-    "ekspor kaltim"
+    "batu bara","sawit","konstruksi"
 ]
 
 # FIND SEARCH COLUMN  
@@ -71,7 +71,7 @@ for word in keywords :
                 sumber = 'kompas.com'
                 
                 List = [judul,tanggal,isi,sumber]
-                with open('D:\AMAGHFIRA\python-project\scrap_news\datanew.csv', 'a') as f_object:
+                with open('D:\AMAGHFIRA\python-project\scrap_news\datanew20230803.csv', 'a') as f_object:
                     # Pass this file object to csv.writer()
                     # and get a writer object
                     writer_object = writer(f_object)

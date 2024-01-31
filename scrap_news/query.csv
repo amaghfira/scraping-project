@@ -1,0 +1,1104 @@
+jdul,query
+1. Blok I: Kewajaran Luas Bangunan dan Luas Tanah,"/*Pengecekan kewajaran isian luas bangunan dan luas tanah yang( r112a>r112b) dan (r112b<10 dan r112b>0)*/
+SELECT id, id_ruta, prov, kab, kec, desa, status_dok, b1r112a, b1r112b 
+FROM view_L2_Blok1 
+WHERE ((b1r112a > b1r112b) and ((b1r112b>0) and (b1r112b<10)))
+"
+,
+2. Blok II: Kewajaran Umur KRT dan ART,"/*Pengecekan ulang kewajaran umur ART  (umur ART banyak yang terisi 99, perlu probing lebih dalam untuk umur ART)
+Pengecekan ulang umur KRT yang di bawah 16 tahun (R204=1 tetapi R206<16)*/
+SELECT id, id_art, id_ruta, prov, kab, kec, desa, status_dok, b2r204, b2r206 
+FROM view_L2_Blok2 
+WHERE (((b2r206 < '16') and (b2r204='1')) or (b2r206='99'))
+"
+,
+3. Blok III: total luas lahan,"/*Luas lahan yang dikuasai (r311) tidak sama dengan penjumlahan dari penggunaan lahan pada setiap bidang oleh unit usaha pertanian (r312 sampai dengan r321)*/
+SELECT t1.* 
+FROM(
+        SELECT prov, kab, kec, desa, 
+                b1r105,b1r106,b1r107,b1r108,
+                id_ruta,id_art, status_dok,
+                COALESCE(b3r311_total,0) AS b3r311_total,
+                (COALESCE(b3r312_total,0)+COALESCE(b3r313_total,0)+COALESCE(b3r314_total,0)+
+                COALESCE(b3r315_total,0)+COALESCE(b3r316_total,0)+COALESCE(b3r317_total,0)+
+                COALESCE(b3r318_total,0)+COALESCE(b3r319_total,0)+COALESCE(b3r320_total,0)+
+                COALESCE(b3r321_total,0)) as sum_b3r312_sd_b3r321
+        from view_L2_Blok2
+"
+,
+4. Blok III: luas lahan sawah,"/*Cek kewajaran luas lahan sawah (r312), misalnya r312>=100000 atau <= 2*/
+SELECT prov, kab, kec, desa, 
+                b1r105,b1r106,b1r107,b1r108,
+                id_ruta,id_art,status_dok, b2r202, b3r301, 
+                b3r312
+FROM view_L2_Blok3
+WHERE (b3r312 is not null and b3r312>0) and ((b3r312 >= 100000) or (b3r312 <= 2))
+"
+,
+5. Blok III: luas lahan bukan sawah,"/*Cek kewajaran luas lahan bukan sawah (r313), misalnya r313 >=100000  atau <= 2*/
+SELECT prov, kab, kec, desa, 
+                b1r105,b1r106,b1r107,b1r108,
+                id_ruta,id_art,status_dok, b2r202, b3r301, 
+                b3r313
+FROM view_L2_Blok3
+WHERE (b3r313 is not null and b3r313 >0) and ((b3r313 >= 100000) or (b3r313 <= 2))
+"
+,
+6. Blok III: luas lahan kandang ternak,"/*Cek kewajaran luas lahan kandang ternak (r318), misalnya r318>=100000 atau <= 2*/
+SELECT prov, kab, kec, desa, 
+                b1r105,b1r106,b1r107,b1r108,
+                id_ruta,id_art, status_dok, b2r202, b3r301, 
+                b3r318
+FROM view_L2_Blok3
+WHERE (b3r318 is not null and b3r318 > 0) and ((b3r318 >= 100000) or (b3r318 <= 2))
+"
+,
+7. Blok III: luas lahan tanaman tahunan,"/*Cek kewajaran luas lahan tanaman tahunan (r317), misalnya r317>=250000 atau <= 5*/
+SELECT prov, kab, kec, desa, 
+                b1r105,b1r106,b1r107,b1r108,
+                id_ruta,id_art,status_dok, b2r202, b3r301, 
+                b3r317
+FROM  view_L2_Blok3
+WHERE (b3r317 is not null and b3r317 >0) and ((b3r317 >= 250000) or (b3r317 <= 5))
+"
+,
+8. Blok III: lokasi lahan,"/*lokasi lahan yang dikuasai bukan berada di provinsi tempat tinggal (r324_prov tidak sama dengan r324). Pastikan kembali status penguasaan lahan tersebut.*/
+SELECT prov, kab, kec, desa, 
+                b1r105,b1r106,b1r107,b1r108,
+                id_ruta,id_art, status_dok, b3r324_prov_1,b3r322 as 'Status Kepemilikan'
+FROM view_L2_Blok3
+WHERE prov <> b3r324_prov_1
+"
+,
+9. Blok IV (Tanpang): nama tanaman palawija lainnya ada di ST2023-kode,"/*Cek deskripsi nama tanaman palawija lainnya (r403=1299) yang sudah ada di ST2023-Kode
+
+*/
+SELECT * 
+FROM (
+    SELECT kab, kec, desa, 
+                b1r105,b1r106,b1r107,b1r108,
+                id_ruta,id_art, status_dok, b2r202, b3r301, 
+            b4r403, lower(b4r402) as b4r402
+    FROM view_L2_Blok4
+    WHERE (b4r403='1299') 
+) t1
+"
+,
+10. Blok IV (Tanpang): nama tanaman bukan merupakan palawija lainnya,"/*Deskripsi tanaman r403=1299 bukan merupakan tanaman palawija lainnya*/
+/*pada query dapat ditambahkan nama tanaman lain yang bukan palawija lainnya jika belum tercakup*/
+
+SELECT prov, kab, kec, desa, b1r105, b1r106, b1r107, b1r108, id, id_art, device, id_ruta, status_dok, b4r401, b4r402, b4r403
+FROM view_L2_Blok4
+where (b4r403 like '1%99') and 
+(
+(b4r402 like '%ALPUKAT%') or
+(b4r402 like '%ANGGUR%') or
+(b4r402 like '%APEL%') or
+(b4r402 like '%AREN/ENAU%') or
+(b4r402 like '%ASAM%JAWA%') or
+"
+,
+11. Blok IV (Horti): nama tanaman lainnya ada di ST2023-kode.,"/*Cek deskripsi nama tanaman hortikultura (r403=2x99) yang sudah ada di ST2023-kode.*/
+SELECT prov, kab, kec, desa, b1r105, b1r106, b1r107, b1r108, id, id_art, device, id_ruta, status_dok, b4r401, b4r402, b4r403
+FROM view_L2_Blok4
+where (b4r403 like '2%99') and 
+(
+(b4r402 like '%BLEWAH%') or
+(b4r402 like '%MELON%LAINNYA%') or
+(b4r402 like '%ROCK%MELON/MELON%BERJARING%') or
+(b4r402 like '%GOLDEN%MELON/MELON%TIDAK%BERJARING%') or
+(b4r402 like '%MENTIMUN%SURI%') or
+(b4r402 like '%SEMANGKA%') or
+(b4r402 like '%STROBERI%') or
+"
+,
+12. Blok IV (Horti): nama tanaman merupakan komoditas tahunan,"/*Tanaman komoditas tahunan (Blok V) tercatat di Semusim (Blok IV).*/
+SELECT prov, kab, kec, desa, b1r105, b1r106, b1r107, b1r108, id, id_art, device, id_ruta, status_dok, b4r401, b4r402, b4r403
+FROM view_L2_Blok4
+where (b4r403 like '2%99') and 
+(
+(b4r402 like '%ALPUKAT%') or
+(b4r402 like '%ANGGUR%') or
+(b4r402 like '%APEL%') or
+(b4r402 like '%BELIMBING%DEWA/DEWI%') or
+(b4r402 like '%BELIMBING%DEMAK%KUNIR%') or
+(b4r402 like '%BELIMBING%KARANG%SARI%') or
+(b4r402 like '%BELIMBING%LAINNYA%') or
+"
+,
+13. Blok IV (Horti): nama komoditas bukan merupakan komoditas horti,"/*Kode komodiitas hortikultura lainnya (r403=2x99) namun nama komoditas (r402) bukan merupakan komoditas hortikultura.*/
+SELECT prov, kab, kec, desa, b1r105, b1r106, b1r107, b1r108, id, id_art, device, id_ruta, status_dok, b4r401, b4r402, b4r403
+FROM view_L2_Blok4
+where (b4r403 like '2%99') and 
+(
+(b4r402 like '%PADI%LADANG%') or
+(b4r402 like '%PADI%SAWAH%HIBRIDA%') or
+(b4r402 like '%PADI%SAWAH%INBRIDA%') or
+(b4r402 like '%JAGUNG%HIBRIDA%') or
+(b4r402 like '%JAGUNG%KOMPOSIT%') or
+(b4r402 like '%JAGUNG%LOKAL%') or
+(b4r402 like '%KEDELAI%') or
+"
+,
+14. Blok IV (Kebun): nama kode komoditas lainnya,"/*Cek kode tanaman lainnya (r403 = 3299) dan isian r402. Pastikan jika r403 = 3299, r402 tidak terisi selain jenis tanaman perkebunan semusim, termasuk tanaman perkebunan semusim yang sudah tersedia kodenya di ST2023-Kode.*/
+SELECT prov, kab, kec, desa, b1r105,b1r106,b1r107,b1r108, id, id_ruta, id_art, b4r402, b4r403, status_dok
+FROM view_L2_Blok4 
+WHERE ((b4r403  LIKE '3%' and b4r403  LIKE '%99'))
+"
+,
+"15. Blok IV (Tanpang, Horti, & Kebun): nama tanaman lainnya tidak spesifik","/*Deskripsi nama tanaman lainnya tidak spesifik, baik untuk komoditas tanaman pangan, hortikultura, dan perkebunan lainnya.*/
+SELECT prov, kab, kec, desa, b1r105, b1r106, b1r107, b1r108, id, id_art, device, id_ruta, status_dok, b4r401, b4r402, b4r403, b11_catatan
+FROM view_L2_Blok4
+where (b4r403 like '%%99') and 
+(
+(b4r402 like '%LAINNYA%')
+)
+"
+,
+"16. Blok IV (Tanpang, Horti & Kebun): outlier nilai ijon","/*Cek outlier nilai ijon per kabupaten per komoditas. Perlu dipastikan bahwa isian sudah dalam bentuk 000 Rp.*/
+SELECT  t1.prov, t1.kab, t1.kec, t1.desa, 
+        t1.b1r105,t1.b1r106,t1.b1r107,t1.b1r108,
+        t1.id_ruta,t1.id_art, t1.status_dok, t1.b2r202, t1.b3r301, 
+        t1.b4r402, t1.b4r403, t1.b4r419,
+        t2.min_whizker AS batas_bawah,
+        t2.max_whizker AS batas_atas
+FROM view_L2_Blok4 AS t1
+LEFT JOIN(
+    SELECT kab,
+                 (CASE 
+                         WHEN Q1 - 1.5*(Q3 - Q1) < 0 THEN 0
+"
+,
+"17. Blok IV (Tanpang, Horti, & Kebun): outlier nilai produksi bibit","/*Cek outlier nilai produksi bibit per kabupaten per komoditas. Perlu dipastikan bahwa isian sudah dalam bentuk 000 Rp.*/
+SELECT  t1.prov, t1.kab, t1.kec, t1.desa, 
+        t1.b1r105,t1.b1r106,t1.b1r107,t1.b1r108,
+        t1.id_ruta,t1.id_art, t1.status_dok, t1.b2r202, t1.b3r301, 
+        t1.b4r402, t1.b4r403, t1.b4r420,
+        t2.min_whizker AS batas_bawah,
+        t2.max_whizker AS batas_atas
+FROM view_L2_Blok4 AS t1
+LEFT JOIN(
+    SELECT kab,
+                 (CASE 
+                         WHEN Q1 - 1.5*(Q3 - Q1) < 0 THEN 0
+"
+,
+"18. Blok IV (Tanpang, Horti, & Kebun): outlier volume produksi","/*Cek outlier volume produksi per kabupaten per komoditas.*/
+SELECT  t1.prov, t1.kab, t1.kec, t1.desa, 
+        t1.b1r105,t1.b1r106,t1.b1r107,t1.b1r108,
+        t1.id_ruta,t1.id_art, t1.status_dok, t1.b2r202, t1.b3r301, 
+        t1.b4r402, t1.b4r403, t1.b4r416,
+        t2.min_whizker AS batas_bawah,
+        t2.max_whizker AS batas_atas
+FROM view_L2_Blok4 AS t1
+LEFT JOIN(
+    SELECT kab,
+            b4r403,
+                 (CASE 
+"
+,
+"19. Blok IV (Tanpang, Horti, & Kebun): outlier nilai produksi","/*Cek outlier nilai produksi per kabupaten per komoditas.*/
+SELECT  t1.prov, t1.kab, t1.kec, t1.desa, 
+        t1.b1r105,t1.b1r106,t1.b1r107,t1.b1r108,
+        t1.id_ruta,t1.id_art, t1.status_dok, t1.b2r202, t1.b3r301, 
+        t1.b4r402, t1.b4r403, t1.b4r417,
+        t2.min_whizker AS batas_bawah,
+        t2.max_whizker AS batas_atas
+FROM  view_L2_Blok4 AS t1
+LEFT JOIN(
+    SELECT kab,
+            b4r403,
+                 (CASE 
+"
+,
+"20. Blok IV (Tanpang, Horti, & Kebun): outlier nilai produksi ikutan","/*Cek outlier nilai produksi ikutan per kabupaten per komoditas.*/
+SELECT  t1.prov, t1.kab, t1.kec, t1.desa, 
+        t1.b1r105,t1.b1r106,t1.b1r107,t1.b1r108,
+        t1.id_ruta,t1.id_art, t1.status_dok, t1.b2r202, t1.b3r301, 
+        t1.b4r402, t1.b4r403, t1.b4r418,
+        t2.min_whizker AS batas_bawah,
+        t2.max_whizker AS batas_atas
+FROM view_L2_Blok4 AS t1
+LEFT JOIN(
+    SELECT kab,
+            b4r403,
+                 (CASE 
+"
+,
+"21. Blok IV (Tanpang, Horti, & Kebun): outlier produktivitas","/*Cek outlier produktivitas (r416/r412) per kabupaten per komoditas.*/
+SELECT  t1.prov, t1.kab, t1.kec, t1.desa, 
+        t1.b1r105,t1.b1r106,t1.b1r107,t1.b1r108,
+        t1.id_ruta,t1.id_art,t1.b2r202, t1.b3r301, 
+        t1.b4r402, t1.b4r403, b4r412, b4r416,
+        t1.b4r416/t1.b4r412 AS produktivitas_r416perr412,
+        t2.min_whizker AS batas_bawah,
+        t2.max_whizker AS batas_atas
+FROM view_L2_Blok4 AS t1
+LEFT JOIN(
+    SELECT kab,
+            b4r403,
+"
+,
+"22. Blok IV (Tanpang, Horti, & Kebun): outlier harga","/*Cek outlier harga (r417/r416) per kabupaten per komoditas.*/
+SELECT  t1.prov, t1.kab, t1.kec, t1.desa, 
+        t1.b1r105,t1.b1r106,t1.b1r107,t1.b1r108,
+        t1.id_ruta,t1.id_art,t1.status_dok,t1.b2r202, t1.b3r301, 
+        t1.b4r402, t1.b4r403, t1.b4r416, t1.b4r417, 
+        t1.b4r417/t1.b4r416 AS hargapersatuan_r417perr416,
+        t2.min_whizker AS batas_bawah,
+        t2.max_whizker AS batas_atas
+FROM view_L2_Blok4 AS t1
+LEFT JOIN(
+    SELECT kab,
+            b4r403,
+"
+,
+23. Blok V (Horti): anomali nama komoditas campuran (tidak sesuai ST KODE),"/*Nama komoditas yang terisi lebih dari 1 jenis pada baris yang sama (terdapat tanda koma, 'dan', '&')*/
+select * from view_L2_Blok5
+where
+    b5r502 like '%,%' or
+    b5r502 like '% dan %' or
+    b5r502 like '%&%'
+"
+,
+24. Blok V (Horti): anomali komoditas pisang,"/*Nama komoditas pisang yang sudah ada pada ST2023-Kode tapi terisi kode lainnya*/
+select * from view_L2_Blok5
+where
+    b5r503 = '2157' and (
+    b5r502 like '%kepok%' or
+    b5r502 like '%mas%' or
+    b5r502 like '%ambon%' or
+    b5r502 like '%lampung%')
+"
+,
+25. Blok V (Horti): anomali komoditas jeruk,"/*Nama komoditas jeruk yang sudah ada pada ST2023-Kode tapi terisi kode lainnya*/
+select * from view_L2_Blok5
+where
+    b5r503 = '2128' and (
+    b5r502 like '%siam%' or
+    b5r502 like '%keprok%' or
+    b5r502 like '%besar%' or
+    b5r502 like '%manis%')
+"
+,
+26. Blok V (Horti): Komoditas semusim yang masuk di blok 5 (tahunan),"/*Komoditas semusim yang masuk di blok 5 (tahunan)*/
+SELECT prov, kab, kec, desa, b1r105, b1r106, b1r107, b1r108, id, id_art, device, id_ruta, status_dok, b5r501, b5r502, b5r503
+FROM view_L2_Blok5
+where (b5r503 like '2%99') and 
+(
+(b5r502 like '%BLEWAH%') or
+(b5r502 like '%MELON%LAINNYA%') or
+(b5r502 like '%ROCK%MELON/MELON%BERJARING%') or
+(b5r502 like '%GOLDEN%MELON/MELON%TIDAK%BERJARING%') or
+(b5r502 like '%MENTIMUN%SURI%') or
+(b5r502 like '%SEMANGKA%') or
+(b5r502 like '%STROBERI%') or
+"
+,
+27. Blok V (Horti): anomali deskripsi tanaman tidak spesifik dan ada di ST-KODE,"/*Deskripsi tanaman lainnya tidak spesifik dan tanaman/komoditas ada di ST2023-kode.*/
+SELECT prov, kab, kec, desa, b1r105, b1r106, b1r107, b1r108, id, id_art, device, id_ruta, status_dok, b5r501, b5r502, b5r503
+FROM view_L2_Blok5
+where (b5r503 like '2%99') and 
+(
+(b5r502 like '%ALPUKAT%') or
+(b5r502 like '%ANGGUR%') or
+(b5r502 like '%APEL%') or
+(b5r502 like '%BELIMBING%DEWA/DEWI%') or
+(b5r502 like '%BELIMBING%DEMAK%KUNIR%') or
+(b5r502 like '%BELIMBING%KARANG%SARI%') or
+(b5r502 like '%BELIMBING%LAINNYA%') or
+"
+,
+28. Blok V (Horti): anomali nama komoditas bukan merupakan komoditas horti,"/*Kode komodiitas hortikultura lainnya namun nama komoditas bukan merupakan komoditas hortikultura.*/
+SELECT prov, kab, kec, desa, b1r105, b1r106, b1r107, b1r108, id, id_art, device, id_ruta, status_dok, b5r501, b5r502, b5r503
+FROM view_L2_Blok5
+where (b5r503 like '2%99') and 
+(
+(b5r502 like '%PADI%LADANG%') or
+(b5r502 like '%PADI%SAWAH%HIBRIDA%') or
+(b5r502 like '%PADI%SAWAH%INBRIDA%') or
+(b5r502 like '%JAGUNG%HIBRIDA%') or
+(b5r502 like '%JAGUNG%KOMPOSIT%') or
+(b5r502 like '%JAGUNG%LOKAL%') or
+(b5r502 like '%KEDELAI%') or
+"
+,
+29. Blok V (Kebun): anomali kode komoditas lainnya,"/*Cek kode tanaman lainnya (r503 = 3199) dan isian r502. Pastikan jika r503 = 3199, r502 bersesuaian tidak terisi selain jenis tanaman perkebunan tahunan, termasuk tanaman perkebunan tahunan yang sudah tersedia kodenya di ST2023-Kode*/
+SELECT prov, kab, kec, desa, b1r105,b1r106,b1r107,b1r108, id, id_ruta, id_art, b5r502, b5r503, status_dok
+FROM view_L2_Blok5 
+WHERE ((b5r503  LIKE '3%' and b5r503  LIKE '%99'))
+
+"
+,
+30. Blok V (Kebun): kode komoditas sawit,"/*Kode komoditas berkode kelapa sawit tapi isian nama komoditas tidak terkandung kata sawit*/
+SELECT prov, kab, kec, desa, b1r105,b1r106,b1r107,b1r108, id, id_ruta, id_art, status_dok, b5r502, b5r503 
+FROM view_L2_Blok5 
+WHERE ((b5r503 = '3111' and b5r502  NOT LIKE '%sawit%'))
+"
+,
+31. Blok V (Kebun): kode komoditas karet,"/*Kode komoditas berkode karet tapi isian nama komoditas tidak terkandung kata  karet*/
+SELECT prov, kab, kec, desa, b1r105,b1r106,b1r107,b1r108, id, id_ruta, id_art, status_dok, b5r502, b5r503 
+FROM view_L2_Blok5 
+WHERE ((b5r503 = '3109' and b5r502  NOT LIKE '%karet%'))
+"
+,
+32. Blok V (Kebun): kode komoditas kopi,"/*Kode komoditas berkode kopi tapi isian nama komoditas tidak terkandung kata kopi*/
+SELECT prov, kab, kec, desa, b1r105,b1r106,b1r107,b1r108, id, id_ruta, id_art, status_dok, b5r502, b5r503 
+FROM view_L2_Blok5 
+WHERE ((b5r503 = '3119' and b5r502  NOT LIKE '%kopi%'))
+"
+,
+33. Blok V (Kebun): kode komoditas kakao,"/*Kode komoditas berkode kakao tapi isian nama komoditas tidak terkandung kata kakao/cokelat*/
+SELECT prov, kab, kec, desa, b1r105,b1r106,b1r107,b1r108, id, id_ruta, id_art, status_dok, b5r502, b5r503 
+FROM view_L2_Blok5 
+WHERE ((b5r503 = '3107' and b5r502  NOT LIKE '%kakao%' and b5r502  NOT LIKE '%cokelat%' and b5r502  NOT LIKE '%coklat%'))
+"
+,
+34. Blok V (Kebun): outlier produktivitas per pohon,"/*Cek outlier produktivitas per pohon (r513/r508) per komoditas*/
+SELECT  t1.prov, t1.kab, t1.kec, t1.desa, 
+        t1.b1r105,t1.b1r106,t1.b1r107,t1.b1r108,
+        t1.id_ruta,t1.id_art,t1.status_dok,t1.b2r202, t1.b3r301, 
+        t1.b5r502, t1.b5r503, t1.b5r508, t1.b5r513, t1.b5r514,
+        t1.b5r513/t1.b5r508 AS provitasr513perr508,
+        t2.min_whizker AS batas_bawah,
+        t2.max_whizker AS batas_atas
+FROM view_L2_Blok5 AS t1
+LEFT JOIN(
+    SELECT prov,
+            b5r503,
+"
+,
+35. Blok V (Horti & Kebun): outlier volume produksi,"/*Cek outlier volume produksi (r513) per komoditas*/
+SELECT  t1.prov, t1.kab, t1.kec, t1.desa, 
+        t1.b1r105,t1.b1r106,t1.b1r107,t1.b1r108,
+        t1.id_ruta,t1.id_art,t1.status_dok,t1.b2r202, t1.b3r301, 
+        t1.b5r502, t1.b5r503, t1.b5r508, t1.b5r513, t1.b5r514, 
+        t2.min_whizker AS batas_bawah,
+        t2.max_whizker AS batas_atas
+FROM view_L2_Blok5 AS t1
+LEFT JOIN(
+    SELECT prov,
+            b5r503,
+                 (CASE 
+"
+,
+36. Blok V (Horti & Kebun): nilai produksi,"/*Cek outlier nilai produksi (r514) per komoditas*/
+SELECT  t1.prov, t1.kab, t1.kec, t1.desa, 
+        t1.b1r105,t1.b1r106,t1.b1r107,t1.b1r108,
+        t1.id_ruta,t1.id_art,t1.status_dok,t1.b2r202, t1.b3r301, 
+        t1.b5r502, t1.b5r503, t1.b5r508, t1.b5r513, t1.b5r514, 
+        t2.min_whizker AS batas_bawah,
+        t2.max_whizker AS batas_atas
+FROM view_L2_Blok5 AS t1
+LEFT JOIN(
+    SELECT prov,
+            b5r503,
+                 (CASE 
+"
+,
+37. Blok V (Horti & Kebun): outlier harga per satuan,"/*Cek outlier harga per satuan produksi per komoditas*/
+SELECT  t1.prov, t1.kab, t1.kec, t1.desa, 
+        t1.b1r105,t1.b1r106,t1.b1r107,t1.b1r108,
+        t1.id_ruta,t1.id_art,t1.status_dok,t1.b2r202, t1.b3r301, 
+        t1.b5r502, t1.b5r503, t1.b5r508, t1.b5r513, t1.b5r514, 
+        t1.b5r514/t1.b5r513 AS hargapersatuan_r514perr513,
+        t2.min_whizker AS batas_bawah,
+        t2.max_whizker AS batas_atas
+FROM view_L2_Blok5 AS t1
+LEFT JOIN(
+    SELECT prov,
+            b5r503,
+"
+,
+38. Blok V (Horti & Kebun): outlier nilai ijon,"/*Cek outlier nilai ijon (r516) per komoditas*/
+SELECT  t1.prov, t1.kab, t1.kec, t1.desa, 
+        t1.b1r105,t1.b1r106,t1.b1r107,t1.b1r108,
+        t1.id_ruta,t1.id_art,t1.status_dok,t1.b2r202, t1.b3r301, 
+        t1.b5r502, t1.b5r503, t1.b5r516, 
+        t2.min_whizker AS batas_bawah,
+        t2.max_whizker AS batas_atas
+FROM view_L2_Blok5 AS t1
+LEFT JOIN(
+    SELECT prov,
+            b5r503,
+                 (CASE 
+"
+,
+39. Blok V (Horti & Kebun): outlier nilai produksi ikutan,"/*Cek outlier nilai produksi ikutan (r515) per komoditas*/
+SELECT  t1.prov, t1.kab, t1.kec, t1.desa, 
+        t1.b1r105,t1.b1r106,t1.b1r107,t1.b1r108,
+        t1.id_ruta,t1.id_art,t1.status_dok,t1.b2r202, t1.b3r301, 
+        t1.b5r502, t1.b5r503, t1.b5r515, 
+        t2.min_whizker AS batas_bawah,
+        t2.max_whizker AS batas_atas
+FROM view_L2_Blok5 AS t1
+LEFT JOIN(
+    SELECT prov,
+            b5r503,
+                 (CASE 
+"
+,
+40. Blok V (Horti & Kebun): outlier nilai produksi bibit,"/*Cek outlier nilai produksi bibit (r517) per komoditas*/
+SELECT  t1.prov, t1.kab, t1.kec, t1.desa, 
+        t1.b1r105,t1.b1r106,t1.b1r107,t1.b1r108,
+        t1.id_ruta,t1.id_art,t1.status_dok,t1.b2r202, t1.b3r301, 
+        t1.b5r502, t1.b5r503, t1.b5r517, 
+        t2.min_whizker AS batas_bawah,
+        t2.max_whizker AS batas_atas
+FROM view_L2_Blok5 AS t1
+LEFT JOIN(
+    SELECT prov,
+            b5r503,
+                 (CASE 
+"
+,
+"41. Blok VI: Pengecekan Ternak Lainnya yang terisi isian ""Lainnya""","/*Jika R603 terisi kode 4499 dan keterangan pada R602 terisi Lainnya maka perbaiki isian sesuai ST2023-KODE.*/
+/*Pengecekan Ternak Lainnya yang terisi isian ""Lainnya""*/
+/*Sebagian nama komoditas dituliskan pada catatan, bukan di R602*/
+/*Perbaiki R602 dan R603 sesuai ST2023-Kode, isian Ternak Lainnya Tidak Boleh Terisi ""Lainnya""*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b11_catatan, 'Perbaiki R602 dan R603 sesuai ST2023-Kode, isian Ternak Lainnya Tidak Boleh Terisi ""Lainnya""' as Keterangan    
+FROM view_L2_Blok6 
+WHERE ((b6r603 = '4499') and 
+(
+UPPER(b6r602) like UPPER('%lain%')
+))
+ORDER by prov, kab, kec, desa, id_ruta, b3r301 asc
+"
+,
+42. Blok VI: Pengecekan Ternak Lainnya yang Sudah Ada di ST2023-Kode,"/*Jika R603 terisi kode 4499 dan keterangan pada R602 merupakan komoditas yang sudah ada pada ST2023-KODE maka perbaiki sesuai ST2023-KODE.*/
+/*Pengecekan Ternak Lainnya yang Sudah Ada di ST2023-Kode*/
+/*Perbaiki r602 dan r603 menjadi komoditas yang sudah ada pada ST2023-KODE*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b11_catatan, 'Perbaiki r602 dan r603 menjadi komoditas yang sudah ada pada ST2023-KODE' as Keterangan    
+FROM view_L2_Blok6 
+WHERE ((b6r603 = '4499') and 
+(
+UPPER(b6r602) like UPPER('%kerbau%potong%') OR 
+UPPER(b6r602) like UPPER('%kerbau%perah%') OR 
+UPPER(b6r602) like UPPER('%sapi%potong%') OR
+UPPER(b6r602) like UPPER('%sapi%perah%') OR
+"
+,
+43. Blok VI: Pengecekan Ternak Lainnya yang Merupakan Unggas Non Pangan,"/*Jika R603 terisi kode 4499 dan keterangan pada R602 merupakan unggas non pangan (seperti burung kicau) perbaiki kode menjadi 4498.*/
+/*Pengecekan Ternak Lainnya yang Merupakan Unggas Non Pangan*/
+/*Perbaiki r602 dan r603 menjadi Unggas Non Pangan (4498)*/
+/*Jika dalam 1 UTP tercatat unggas non pangan di lebih dari 1 baris, maka digabung menjadi 1 baris sebagai unggas non pangan, jumlah ternaknya digabungkan*/
+/*Jika r602 tercakup komoditas selain unggas non pangan (karena typo/salah tulis/tidak sengaja tercakup dalam query), maka lakukan prosedur perbaikan lain sebagaimana mestinya.*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b11_catatan, 'Perbaiki r602 dan r603 menjadi Unggas Non Pangan (4498). Jika dalam 1 UTP tercatat unggas non pangan di lebih dari 1 baris, maka digabung 
+    menjadi 1 baris sebagai unggas non pangan, jumlah ternaknya digabungkan. Jika r602 tercakup komoditas selain unggas non pangan (karena typo/salah tulis/tidak sengaja tercakup dalam query), maka lakukan prosedur perbaikan lain 
+    sebagaimana mestinya.' as Keterangan    
+FROM view_L2_Blok6 
+WHERE ((b6r603 = '4499') and 
+(
+"
+,
+44. Blok VI: Pengecekan Ternak Lainnya yang Merupakan Ayam Lokal Lainnya,"/*Jika R603 terisi kode 4499 dan keterangan pada R602 merupakan ayam lokal lainnya (seperti ayam bangkok, ayam kate, dll) maka perbaiki kode menjadi 4402.*/
+/*Pengecekan Ternak Lainnya yang Merupakan Ayam Lokal Lainnya*/
+/*Perbaiki r602 dan r603 menjadi Ayam Lokal Lainnya (4402)*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b11_catatan, 'Perbaiki r602 dan r603 menjadi Ayam Lokal Lainnya (4402)' as Keterangan    
+FROM view_L2_Blok6 
+WHERE ((b6r603 = '4499') and 
+(
+UPPER(b6r602) like UPPER('%ayam%bangkok%') OR
+UPPER(b6r602) like UPPER('%ayam%kate%') OR
+UPPER(b6r602) like UPPER('%ayam%cemani%') OR
+UPPER(b6r602) like UPPER('%ayam%hutan%') OR
+"
+,
+45. Blok VI: Pengecekan Ternak Lainnya yang Terisi Ayam Kampung,"/*Jika R603 terisi kode 4499 dan keterangan pada R602 tertulis ayam kampung, maka perlu konfirmasi apakah ayam kampung biasa (4301) atau ayam lokal lainnya (4402).*/
+/*Pengecekan Ternak Lainnya yang Terisi Ayam Kampung*/
+/*Perlu konfirmasi, Kemungkinan r602 dan r603 menjadi Ayam Kampung Biasa (4301) atau Ayam Lokal Lainnya (4402)*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b11_catatan, 'Perlu konfirmasi, Kemungkinan r602 dan r603 menjadi Ayam Kampung Biasa (4301) atau Ayam Lokal Lainnya (4402)' as Keterangan    
+FROM view_L2_Blok6 
+WHERE ((b6r603 = '4499') and 
+(
+UPPER(b6r602) like UPPER('%ayam%kampung%') 
+))
+ORDER by prov, kab, kec, desa, id_ruta, b3r301 asc
+
+"
+,
+46. Blok VI: Pengecekan Ternak Lainnya yang Bukan Merupakan Komoditas Peternakan,"/*Jika R603 terisi kode 4499 dan keterangan pada R602 bukan merupakan komoditas peternakan sesuai ST2023-KODE (seperti ternak lele) maka bukan termasuk komoditas peternakan.*/
+/*Pengecekan Ternak Lainnya yang Bukan Merupakan Komoditas Peternakan*/
+/*Komoditas pada r602 bukan komoditas peternakan.*/
+/*Jika r602 tercakup komoditas peternakan (karena typo/salah tulis/tidak sengaja tercakup dalam query, maka lakukan prosedur perbaikan lain sebagaimana mestinya.*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b11_catatan, 'Komoditas pada r602 bukan komoditas peternakan. Jika r602 tercakup komoditas peternakan (karena typo/salah tulis/tidak sengaja tercakup 
+    dalam query), maka lakukan prosedur perbaikan lain sebagaimana mestinya.' as Keterangan    
+FROM view_L2_Blok6 
+WHERE ((b6r603 = '4499') and 
+(
+UPPER(b6r602) like UPPER('%ikan%') OR
+UPPER(b6r602) like UPPER('%lobster%') OR
+"
+,
+47. Blok VI: Pengecekan Ternak Lainnya yang Merupakan Satwa Liar Tidak Diusahakan,"/*Jika R603 terisi kode 4499 dan keterangan pada R602 merupakan ternak liar (seperti monyet, ular piton/python) yang tidak dibudidayakan dan diusahakan (R618 kode 6) maka tidak dicakup di subsektor peternakan.*/
+/*Pengecekan Ternak Lainnya yang Merupakan Satwa Liar Tidak Diusahakan*/
+/*Komoditas pada r602 merupakan ternak liar yang tidak dibudidayakan dan tidak diusahakan (r618 kode 6), sehingga tidak dicakup di subsektor peternakan (dihapus dari blok VI)*/
+/*Jika ternak ini bukan merupakan ternak/satwa liar (semisal muncul karena typo/salah tulis/tidak sengaja tercakup dalam query), maka lakukan prosedur perbaikan lain sebagaimana mestinya*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b6r618, b11_catatan, 'Komoditas pada r602 merupakan ternak liar yang tidak dibudidayakan dan tidak diusahakan (r618 kode 6), sehingga tidak dicakup di 
+    subsektor peternakan (dihapus dari blok VI). Jika ternak ini bukan merupakan ternak/satwa liar (semisal muncul karena typo/salah tulis/tidak sengaja tercakup dalam query), maka lakukan prosedur perbaikan lain sebagaimana 
+    mestinya.' as Keterangan    
+FROM view_L2_Blok6 
+WHERE ((b6r603 = '4499' and b6r618 = '6') and 
+(
+(UPPER(b6r602) not like UPPER('%lain%')) and
+"
+,
+48. Blok VI: Pengecekan Ternak Lainnya yang Merupakan Satwa Liar Diusahakan,"/*Jika R603 terisi kode 4499 dan keterangan pada R602 merupakan ternak liar (seperti monyet, ular piton/python) yang dibudidayakan dan diusahakan (R618 kode 1) tetapi jumlah ternaknya kurang dari 10 ekor*/
+/*Pengecekan Ternak Lainnya yang Merupakan Satwa Liar Diusahakan*/
+/*Perlu konfirmasi tujuan utama pemeliharaan ternak R618 berkode 1 (pengembangbiakkan) untuk satwa liar (4499) tapi jumlah ternak kurang dari 10 ekor*/
+/*Jika ternak ini bukan merupakan ternak/satwa liar (semisal muncul karena typo/salah tulis/tidak sengaja tercakup dalam query), maka lakukan prosedur perbaikan lain sebagaimana mestinya*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b6r618, b6r606, b11_catatan, 'Perlu konfirmasi tujuan utama pemeliharaan ternak R618 berkode 1 (pengembangbiakkan) untuk satwa liar (4499) tapi jumlah 
+    ternak kurang dari 10 ekor. Jika ternak ini bukan merupakan ternak/satwa liar (semisal muncul karena typo/salah tulis/tidak sengaja tercakup dalam query), maka lakukan prosedur perbaikan lain sebagaimana mestinya.' as Keterangan 
+       
+FROM view_L2_Blok6 
+WHERE ((b6r603 = '4499' and b6r618 = '1' and b6r606 < 10)
+and
+((UPPER(b6r602) not like UPPER('%lain%')) and
+"
+,
+"49. Blok VI: Pengecekan Deskripsi Ternak Lainnya yang Salah Tulis (Typo), Tidak Menggunakan Nama Nasional, atau Belum Tercakup pada Pengecekan Query Deskripsi Ternak Lainnya yang Sudah Ada","/*Jika R603 terisi kode 4499 dan isian pada R602 belum tercakup/terdeteksi pada query pengecekan deskripsi ternak lainnya yang sudah ada, semisal karena salah tulis/typo atau tidak menggunakan nama nasional*/
+/*Pengecekan Deskripsi Ternak Lainnya yang Salah Tulis (Typo), Tidak Menggunakan Nama Nasional, atau Belum Tercakup pada Pengecekan Query Deskripsi Ternak Lainnya yang Sudah Ada*/
+/*Pengecekan untuk deskripsi ternak lainnya yang masih terlewat dari query deskripsi ternak lainnya yang sudah ada. Perbaiki isian ternak lainnya R602 dan/atau Kode Ternak R603 sesuai dengan prosedur perbaikan deskripsi ternak 
+    lainnya yang sudah ada (kecuali satwa liar dan ternak yang memang dikodekan 4499) dan perbaiki jika ada kesalahan penulisan/typo atau tidak menggunakan nama nasional pada deskripsinya .*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b6r606, b6r618, b11_catatan, 'Pengecekan untuk deskripsi ternak lainnya yang masih terlewat dari query deskripsi ternak lainnya yang sudah ada. 
+    Perbaiki isian ternak lainnya R602 dan/atau Kode Ternak R603 sesuai dengan prosedur perbaikan deskripsi ternak lainnya yang sudah ada (kecuali satwa liar dan ternak yang memang dikodekan 4499) dan perbaiki jika ada kesalahan 
+    penulisan/typo atau tidak menggunakan nama nasional pada deskripsinya.' as Keterangan    
+FROM view_L2_Blok6 
+WHERE ((b6r603 = '4499') and 
+(
+(UPPER(b6r602) not like UPPER('%luwak%')) and
+"
+,
+50. Blok VI: Pengecekan Rumpun Lainnya Ternak Besar Sapi dan Kerbau,"/*Pengecekan Ternak Besar Sapi dan Kerbau untuk Jenis Rumpun Lainnya (19,29,39 dan 49)*/
+/*Pengecekan Rumpun Lainnya Ternak Besar Sapi dan Kerbau*/
+/*Perlu konfirmasi jenis rumpun Sapi dan Kerbau yang terisi jenis rumpun lainnya. Apakah benar tidak ada yang paling mendekati jenis rumpun yang sudah ada di ST2023-Kode?*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b6r605, b11_catatan, 'Perlu konfirmasi jenis rumpun Sapi dan Kerbau yang terisi jenis rumpun lainnya. Apakah benar tidak ada yang paling mendekati jenis 
+    rumpun yang sudah ada di ST2023-Kode?' as Keterangan    
+FROM view_L2_Blok6 
+WHERE ((b6r603 = '4101' OR b6r603 = '4103' OR b6r603 = '4104' OR b6r603 = '4105') and (b6r605 = '19' OR b6r605 = '29' OR b6r605 = '39' OR b6r605 = '49'))
+ORDER by prov, kab, kec, desa, id_ruta, b3r301, b6r603, b6r605 asc
+"
+,
+51. Blok VI: Pengecekan Jumlah Ternak Besar,"/*Pengecekan R606 untuk Jumlah Ternak Besar Sapi Potong, Kuda, Sapi Perah, Kerbau Potong, Kerbau Perah (4101, 4102, 4103, 4104, 4105) yang lebih dari 50 ekor. */
+/*Pengecekan Jumlah Ternak Besar*/
+/*Jumlah ternak besar Sapi Potong, Kuda, Sapi Perah, Kerbau Potong, atau Kerbau Perah (Kode 4101, 4102, 4103, 4104, atau 4105) > 50 (R606 > 50). Perlu konfirmasi, karena jumlah ternak cukup banyak*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b6r605, b6r606, b11_catatan, 'Jumlah ternak besar Sapi Potong, Kuda, Sapi Perah, Kerbau Potong, atau Kerbau Perah (Kode 4101, 4102, 4103, 4104, atau 4105) 
+    > 50 (R606 > 50). Perlu konfirmasi, karena jumlah ternak cukup banyak' as Keterangan
+FROM view_L2_Blok6 
+WHERE ((b6r603 = '4101' OR b6r603 = '4102' OR b6r603 = '4103' OR b6r603 = '4104' OR b6r603 = '4105') and (b6r606 > 50))
+ORDER by prov, kab, kec, desa, id_ruta, b3r301, b6r603 asc
+
+"
+,
+52. Blok VI: Pengecekan Jumlah Ternak Kecil,"/*Pengecekan R606 untuk Jumlah Ternak Kecil (4201, 4202, 4203, 4204, atau 4205) yang lebih dari 100 ekor. */
+/*Pengecekan Jumlah Ternak Kecil*/
+/*Jumlah Ternak Kecil Babi, Domba Potong, Kambing Potong, Kambing Perah, atau Domba Perah (Kode 4201, 4202, 4203, 4204, atau 4205) > 100 (R606 > 100). Perlu konfirmasi, karena jumlah ternak cukup banyak*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b6r606, b11_catatan, 'Jumlah Ternak Kecil Babi, Domba Potong, Kambing Potong, Kambing Perah, atau Domba Perah (Kode 4201, 4202, 4203, 4204, atau 4205) > 
+    100 (R606 > 100). Perlu konfirmasi, karena jumlah ternak cukup banyak' as Keterangan    
+FROM view_L2_Blok6 
+WHERE ((b6r603 = '4201' OR b6r603 = '4202' OR b6r603 = '4203' OR b6r603 = '4204' OR b6r603 = '4205') and (b6r606 > 100))
+ORDER by prov, kab, kec, desa, id_ruta, b3r301, b6r603 asc
+"
+,
+53. Blok VI: Pengecekan Jumlah Ternak Unggas Ayam Kampung Biasa dan Itik Manila,"/*Pengecekan R606 untuk Jumlah Ternak Unggas Ayam Kampung Biasa (4301) atau Itik Manila (4305) yang lebih dari 100 ekor. */
+/*Pengecekan Jumlah Ternak Unggas Ayam Kampung Biasa dan Itik Manila*/
+/*Jumlah ternak unggas Ayam Kampung Biasa (4301) atau Itik Manila (4305) > 100 (R606 > 100). Perlu konfirmasi, karena jumlah ternak cukup banyak*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b6r606, b11_catatan, 'Jumlah ternak unggas Ayam Kampung Biasa (4301) atau Itik Manila (4305) > 100 (R606 > 100). Perlu konfirmasi, karena jumlah ternak 
+    cukup banyak' as Keterangan    
+FROM view_L2_Blok6 
+WHERE ((b6r603 = '4301' OR b6r603 = '4305') and (b6r606 > 100))
+ORDER by prov, kab, kec, desa, id_ruta, b3r301, b6r603 asc
+"
+,
+54. Blok VI: Pengecekan Jumlah Ternak Unggas Ayam Ras Pedaging FS dan Ayam Ras Petelur FS,"/*Pengecekan R606 untuk Jumlah Ternak Unggas Ayam Ras Pedaging FS (4302) atau Ayam Ras Petelur FS (4303) yang kurang dari 50 ekor. */
+/*Pengecekan Jumlah Ternak Unggas Ayam Ras Pedaging FS dan Ayam Ras Petelur FS*/
+/*Jumlah Ayam Ras Pedaging FS (4302) atau Ayam Ras Petelur FS (4303) < 50 (R606 < 50). Perlu konfirmasi, karena jumlah ternak sangat sedikit, kemungkinan bukan komoditas Ayam Ras*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b6r606, b11_catatan, 'Jumlah Ayam Ras Pedaging FS (4302) atau Ayam Ras Petelur FS (4303) < 50 (R606 < 50). Perlu konfirmasi, karena jumlah ternak sangat 
+    sedikit, kemungkinan bukan komoditas Ayam Ras' as Keterangan
+FROM view_L2_Blok6 
+WHERE ((b6r603 = '4302' OR b6r603 = '4303') and (b6r606 < 50))
+ORDER by prov, kab, kec, desa, id_ruta, b3r301, b6r603 asc
+
+"
+,
+55. Blok VI: Pengecekan Jumlah Ternak Unggas Ayam Kampung Pedaging dan Ayam Kampung Petelur,"/*Pengecekan R606 untuk Jumlah Ternak Unggas Ayam Kampung Pedaging (4306) atau Ayam Kampung Petelur (4307) yang kurang dari 50 ekor.*/
+/*Pengecekan Jumlah Ternak Unggas Ayam Kampung Pedaging dan Ayam Kampung Petelur*/
+/*Jumlah Ayam Kampung Pedaging (4306) atau Ayam Kampung Petelur (4307) < 50 (R606 < 50). Perlu konfirmasi, karena jumlah ternak sangat sedikit, kemungkinan komoditas Ayam Kampung Biasa (4301)*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b6r606, b11_catatan, 'Jumlah Ayam Kampung Pedaging (4306) atau Ayam Kampung Petelur (4307) < 50 (R606 < 50). Perlu konfirmasi, karena jumlah ternak sangat 
+    sedikit, kemungkinan komoditas Ayam Kampung Biasa (4301)' as Keterangan    
+FROM view_L2_Blok6 
+WHERE ((b6r603 = '4306' OR b6r602 = '4307') and (b6r606 < 50))
+ORDER by prov, kab, kec, desa, id_ruta, b3r301, b6r603 asc
+"
+,
+56. Blok VI: Pengecekan Jumlah Ternak Lebah,"/*Pengecekan R606 untuk Jumlah Ternak Lebah (4413) yang lebih dari 100 koloni. 
+*/
+/*Pengecekan Jumlah Ternak Lebah*/
+/*Jumlah Koloni Lebah (4413) > 100 (R606 > 100). Perlu konfirmasi, karena jumlah koloni sangat banyak, kemungkinan yang diisikan adalah jumlah ekor*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b6r606, b11_catatan, 'Jumlah Koloni Lebah (4413) > 100 (R606 > 100). Perlu konfirmasi, karena jumlah koloni sangat banyak, kemungkinan yang diisikan 
+    adalah jumlah ekor' as Keterangan
+FROM view_L2_Blok6 
+WHERE ((b6r603 = '4413') and (b6r606 > 100))
+ORDER by prov, kab, kec, desa, id_ruta, b3r301 asc 
+"
+,
+"57. Blok VI: Pengecekan Jumlah Ternak Cacing, Ulat Sutera, dan Walet","/*Pengecekan R606 untuk Jumlah Ternak Cacing, Ulat Sutera, atau Walet (4409, 4416, atau 4417) yang kurang dari 50 ekor.*/
+/*Pengecekan Jumlah Ternak Cacing, Ulat Sutera, dan Walet*/
+/*Jumlah ternak Cacing, Ulat Sutera, atau Walet (Kode 4409, 4416, atau 4417) < 50 (R606 < 50). Perlu konfirmasi, karena jumlah ternak sangat sedikit, kemungkinan yang diisikan adalah jumlah sarang*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b6r606, b11_catatan, 'Jumlah ternak Cacing, Ulat Sutera, atau Walet (Kode 4409, 4416, atau 4417) < 50 (R606 < 50). Perlu konfirmasi, karena jumlah ternak 
+    sangat sedikit, kemungkinan yang diisikan adalah jumlah sarang' as Keterangan    
+FROM view_L2_Blok6 
+WHERE (((b6r603 = '4417' OR b6r603 = '4416' OR b6r603 = '4409') and (b6r606 < 50)))
+ORDER by prov, kab, kec, desa, id_ruta, b3r301, b6r603 asc 
+"
+,
+58. Blok VI: Pengecekan Tujuan Utama Pemeliharaan Ternak untuk Pembibitan,"/*Semua Usaha Pembibitan perlu dikonfirmasi di R618*/
+/*Pengecekan Tujuan Utama Pemeliharaan Ternak untuk Pembibitan*/
+/*Perlu konfirmasi, kemungkinan tujuan utama pemeliharaan ternak adalah pengembangbiakkan jika tidak ada pemuliaan ternak (tidak mengetahui silsilah indukan)*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b6r618, b11_catatan, 'Perlu konfirmasi, kemungkinan tujuan utama pemeliharaan ternak adalah pengembangbiakkan jika tidak ada pemuliaan ternak (tidak 
+    mengetahui silsilah indukan)' as Keterangan    
+FROM view_L2_Blok6 
+WHERE (b6r618 = '3')
+ORDER by prov, kab, kec, desa, id_ruta, b3r301, b6r603 asc 
+
+"
+,
+59. Blok VI: Pengecekan Keberadaan Ternak Betina Dewasa Sapi dan Kerbau untuk Pengembangbiakkan atau Pembibitan,"/*Perlu konfirmasi karena tujuan utama pemeliharaan ternak (R618) ternak Sapi Potong, Sapi Perah, Kerbau Potong, atau kerbau Perah (Kode 4101, 4103, 4104, atau 4105) berkode 1 (pengembangbiakan) atau 3 (pembibitan) tapi tidak ada 
+    ternak betina dewasa (R612 + R613 = 0)*/
+/*Pengecekan Keberadaan Ternak Betina Dewasa Sapi dan Kerbau untuk Pengembangbiakkan atau Pembibitan*/
+/*Perlu konfirmasi karena tujuan utama pemeliharaan ternak (R618) ternak Sapi Potong, Sapi Perah, Kerbau Potong, atau kerbau Perah (Kode 4101, 4103, 4104, atau 4105) berkode 1 (pengembangbiakan) atau 3 (pembibitan) tapi tidak ada 
+    ternak betina dewasa (R612 + R613 = 0)*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602,  b6r603, b6r605, b6r618, COALESCE(b6r612,0) as b6r612, COALESCE(b6r613,0) as b6r613, b11_catatan, 'Perlu konfirmasi karena tujuan utama pemeliharaan ternak 
+    (R618) ternak Sapi Potong, Sapi Perah, Kerbau Potong, atau kerbau Perah (Kode 4101, 4103, 4104, atau 4105) berkode 1 (pengembangbiakan) atau 3 (pembibitan) tapi tidak ada ternak betina dewasa (R612 + R613 = 0)' as Keterangan    
+FROM view_L2_Blok6 
+WHERE (((b6r603 = '4101' OR b6r603 = '4103' OR b6r603 = '4104' OR b6r603 = '4105') and (b6r618 = '1' OR b6r618 = '3') and (COALESCE(b6r612,0)+COALESCE(b6r613,0) = 0))) 
+ORDER by prov, kab, kec, desa, id_ruta, b3r301, b6r603 asc
+
+"
+,
+60. Blok VI: Pengecekan Keberadaan Ternak Betina Dewasa Sapi Perah dan Kerbau Perah untuk Produksi Susu,"/*Perlu konfirmasi karena tujuan utama pemeliharaan ternak (R618) ternak Sapi Perah (4103) atau Kerbau Perah (4105) berkode 5 (produksi susu) tapi tidak ada ternak betina dewasa (R612 + R613 = 0)*/
+/*Pengecekan Keberadaan Ternak Betina Dewasa Sapi Perah dan Kerbau Perah untuk Produksi Susu*/
+/*Perlu konfirmasi karena tujuan utama pemeliharaan ternak (R618) ternak Sapi Perah (4103) atau Kerbau Perah (4105) berkode 5 (produksi susu) tapi tidak ada ternak betina dewasa (R612 + R613 = 0)*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602,  b6r603, b6r605, b6r618, COALESCE(b6r612,0) as b6r612, COALESCE(b6r613,0) as b6r613, b11_catatan, 'Perlu konfirmasi karena tujuan utama pemeliharaan ternak (R618) 
+    ternak Sapi Perah (4103) atau Kerbau Perah (4105) berkode 5 (produksi susu) tapi tidak ada ternak betina dewasa (R612 + R613 = 0)' as Keterangan    
+FROM view_L2_Blok6 
+WHERE (((b6r603 = '4103' OR b6r603 = '4105') and (b6r618 = '5') and (COALESCE(b6r612,0)+COALESCE(b6r613,0) = 0)))
+ORDER by prov, kab, kec, desa, id_ruta, b3r301, b6r603 asc
+
+"
+,
+"61. Blok VI: Pengecekan Keberadaan Ternak Betina Dewasa selain Sapi, Kerbau, dan Ternak Lainnya untuk Pengembangbiakkan atau Pembibitan","/*Perlu konfirmasi karena tujuan utama pemeliharaan ternak (R618) ternak besar (selain sapi dan kerbau), ternak kecil, atau ternak unggas (selain unggas pedaging) berkode 1 (pengembangbiakan) atau 3 (pembibitan) tapi tidak ada ternak 
+    betina dewasa (R614 = 0)*/
+/*Pengecekan Keberadaan Ternak Betina Dewasa selain Sapi, Kerbau, dan Ternak Lainnya untuk Pengembangbiakkan atau Pembibitan*/
+/*Perlu konfirmasi karena tujuan utama pemeliharaan ternak (R618) ternak besar (selain sapi dan kerbau), ternak kecil, atau ternak unggas (selain unggas pedaging) berkode 1 (pengembangbiakan) atau 3 (pembibitan) tapi tidak ada ternak 
+    betina dewasa (R614 = 0)*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b6r618, COALESCE(b6r614,0) as b6r614, b11_catatan, 'Perlu konfirmasi karena tujuan utama pemeliharaan ternak (R618) ternak besar (selain sapi dan 
+    kerbau), ternak kecil, atau ternak unggas (selain unggas pedaging) berkode 1 (pengembangbiakan) atau 3 (pembibitan) tapi tidak ada ternak betina dewasa (R614 = 0)' as Keterangan    
+FROM view_L2_Blok6 
+WHERE (((b6r603 = '4102' OR b6r603 = '4201' OR b6r603 = '4202' OR b6r603 = '4203' OR b6r603 = '4204' OR b6r603 = '4205' OR b6r603 = '4406' OR b6r603 = '4415' OR b6r603 = '4418' OR b6r603 = '4419' OR b6r603 = '4301' OR b6r603 = '4303' 
+    OR b6r603 = '4304' OR b6r603 = '4305' OR b6r603 = '4307' OR b6r603 = '4401' OR b6r603 = '4403' OR b6r603 = '4404' OR b6r603 = '4405' OR b6r603 = '4408') and ((b6r618 = '1' OR b6r618 = '3') and (COALESCE(b6r614,0) = 0))))
+ORDER by prov, kab, kec, desa, id_ruta, b3r301, b6r603 asc
+"
+,
+62. Blok VI: Pengecekan Keberadaan Ternak Betina Dewasa Unggas Petelur untuk Produksi Telur,"/*Perlu konfirmasi karena tujuan utama pemeliharaan ternak (R618) ternak Ayam Ras Petelur FS, Itik Petelur, Ayam Kampung Petelur, atau Puyuh Petelur (4303, 4304, 4307, atau 4404) berkode 5 (produksi telur) tapi tidak ada ternak 
+    betina dewasa (R614 = 0)*/
+/*Pengecekan Keberadaan Ternak Betina Dewasa Unggas Petelur untuk Produksi Telur*/
+/*Perlu konfirmasi karena tujuan utama pemeliharaan ternak (R618) ternak Ayam Ras Petelur FS, Itik Petelur, Ayam Kampung Petelur, atau Puyuh Petelur (4303, 4304, 4307, atau 4404) berkode 5 (produksi telur) tapi tidak ada ternak 
+    betina dewasa (R614 = 0)*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b6r618, COALESCE(b6r614,0) as b6r614, b11_catatan, 'Perlu konfirmasi karena tujuan utama pemeliharaan ternak (R618) ternak Ayam Ras Petelur FS, Itik 
+    Petelur, Ayam Kampung Petelur, atau Puyuh Petelur (4303, 4304, 4307, atau 4404) berkode 5 (produksi telur) tapi tidak ada ternak betina dewasa (R614 = 0)' as Keterangan    
+FROM view_L2_Blok6 
+WHERE (((b6r603 = '4303' OR b6r603 = '4304' OR b6r603 = '4307' OR b6r603 = '4404') and ((b6r618 = 5) and (COALESCE(b6r614,0) = 0))))
+ORDER by prov, kab, kec, desa, id_ruta, b3r301, b6r603 asc
+
+"
+,
+63. Blok VI: Pengecekan Jumlah Siklus Ternak Unggas Pedaging,"/*Harga Ayam Ras Pedaging FS, Ayam Kampung Pedaging, Itik Pedaging, atau Puyuh Pedaging < 20.000 */
+/*Pengecekan Harga Ternak Unggas Pedaging Per Ekor Sangat Rendah*/
+/*Harga Ayam Ras Pedaging FS, Ayam Kampung Pedaging, Itik Pedaging, atau Puyuh Pedaging < Rp. 20.000 per ekor. Perlu konfirmasi, karena harga per ekornya sangat rendah*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b6r615, b6r616, b6r620_1, b6r621_1, cast(((b6r621_1*1.0)/(b6r615*b6r616))*1000 as decimal(30,2)) as Harga_Per_Ekor_Rp, b11_catatan, 'Harga Ayam Ras 
+    Pedaging FS, Ayam Kampung Pedaging, Itik Pedaging, atau Puyuh Pedaging < Rp. 20.000 per ekor. Perlu konfirmasi, karena harga per ekornya sangat rendah' as Keterangan
+FROM view_L2_Blok6 
+WHERE (((b6r603 = '4302' OR b6r603 = '4306' OR b6r603 = '4308' OR b6r603 = '4420') and (((b6r621_1/(b6r615*b6r616))*1000 < 20000))))
+ORDER by prov, kab, kec, desa, id_ruta, b3r301, b6r603, b6r621_1/(b6r615*b6r616) asc 
+"
+,
+64. Blok VI: Pengecekan Rata-rata Pembelian DOC/DOD/DOQ per Siklus Ternak Unggas Pedaging,"/*Pengecekan R616 untuk rata-rata pembelian DOC/DOD/DOQ per siklus Ternak Unggas Pedaging (4302, 4306, 4308, atau 4420) yang kurang dari 50 ekor per siklus. 
+*/
+/*Pengecekan Rata-rata Pembelian DOC/DOD/DOQ per Siklus Ternak Unggas Pedaging*/
+/*Rata-rata pembelian DOC/DOD/DOQ per siklus (R616) ternak Ayam Ras Pedaging FS, Ayam Kampung Pedaging, Itik Pedaging, atau Puyuh Pedaging (Kode 4302, 4306, 4308, atau 4420) < 50 ekor. Perlu konfirmasi, karena rata-rata pembelian DOC
+    /DOD/DOQ cukup sedikit*/
+
+SELECT prov, kab, kec, desa, id_ruta,  b3r301, status_dok, b6r601, b6r602, b6r603, b6r616, b11_catatan, 'Rata-rata pembelian DOC/DOD/DOQ per siklus (R616) ternak Ayam Ras Pedaging FS, Ayam Kampung Pedaging, Itik Pedaging, atau Puyuh 
+    Pedaging (Kode 4302, 4306, 4308, atau 4420) < 50 ekor. Perlu konfirmasi, karena rata-rata pembelian DOC/DOD/DOQ cukup sedikit' as Keterangan    
+FROM view_L2_Blok6 
+WHERE (((b6r603 = '4302' OR b6r603 = '4306' OR b6r603 = '4308' OR b6r603 = '4420') and b6r616 < 50))
+ORDER by prov, kab, kec, desa, id_ruta, b3r301, b6r603 asc 
+
+"
+,
+65. Blok VI: Pengecekan Harga Ternak Unggas Pedaging Per Ekor Sangat Rendah,"/*Nilai produksi sangat tinggi > Rp. 100.000.000 (100.000 dalam database)*/
+/*Pengecekan Nilai Produksi Sangat Tinggi*/
+/*Perlu konfirmasi, karena nilai produksi sangat tinggi (> Rp. 100.000.000 (100.000 dalam database))*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b6r621_1, b6r621_2, b6r621_3, b6r621_4, b6r621_5, b6r621_6, b6r621_7, b6r621_8, b6r621_9, b6r621_10, b6r621_11, b6r621_12, b11_catatan, 'Perlu 
+    konfirmasi, karena nilai produksi sangat tinggi (> Rp. 100.000.000 (100.000 dalam database))' as Keterangan    
+FROM view_L2_Blok6 
+WHERE (((b6r621_1>100000) OR (b6r621_2>100000) OR (b6r621_3>100000) OR (b6r621_4>100000) OR (b6r621_5>100000) OR (b6r621_6>100000) OR (b6r621_7>100000) OR (b6r621_8>100000) OR (b6r621_9>100000) OR (b6r621_10>100000) OR (b6r621_11
+    >100000) OR (b6r621_12>100000)))
+ORDER by prov, kab, kec, desa, id_ruta, b3r301, b6r603, b6r621_1, b6r621_2, b6r621_3, b6r621_4, b6r621_5, b6r621_6, b6r621_7, b6r621_8, b6r621_9, b6r621_10, b6r621_11, b6r621_12 asc 
+
+"
+,
+66. Blok VI: Pengecekan Harga Ternak Unggas Pedaging Per Ekor Sangat Tinggi,"/*Harga Ayam Ras Pedaging FS, Ayam Kampung Pedaging, Itik Pedaging, atau Puyuh Pedaging > 100.000 */
+/*Pengecekan Harga Ternak Unggas Pedaging Per Ekor Sangat Tinggi*/
+/*Harga Ayam Ras Pedaging FS, Ayam Kampung Pedaging, Itik Pedaging, atau Puyuh Pedaging > Rp. 100.000 per ekor. Perlu konfirmasi, karena harga per ekornya sangat tinggi*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b6r615, b6r616, b6r620_1, b6r621_1, cast(((b6r621_1*1.0)/(b6r615*b6r616))*1000 as decimal(30,2)) as Harga_Per_Ekor_Rp, b11_catatan, 'Harga Ayam Ras 
+    Pedaging FS, Ayam Kampung Pedaging, Itik Pedaging, atau Puyuh Pedaging > Rp. 100.000 per ekor. Perlu konfirmasi, karena harga per ekornya sangat tinggi' as Keterangan    
+FROM view_L2_Blok6 
+WHERE (((b6r603 = '4302' OR b6r603 = '4306' OR b6r603 = '4308' OR b6r603 = '4420') and (((b6r621_1/(b6r615*b6r616))*1000 > 100000))))
+ORDER by prov, kab, kec, desa, id_ruta, b3r301, b6r603, b6r621_1/(b6r615*b6r616) asc 
+"
+,
+67. Blok VI: Pengecekan Nilai Produksi Sangat Tinggi,"/*Nilai produksi sangat tinggi > Rp. 100.000.000 (100.000 dalam database)*/
+/*Pengecekan Nilai Produksi Sangat Tinggi*/
+/*Perlu konfirmasi, karena nilai produksi sangat tinggi (> Rp. 100.000.000 (100.000 dalam database))*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b6r621_1, b6r621_2, b6r621_3, b6r621_4, b6r621_5, b6r621_6, b6r621_7, b6r621_8, b6r621_9, b6r621_10, b6r621_11, b6r621_12, b11_catatan, 'Perlu 
+    konfirmasi, karena nilai produksi sangat tinggi (> Rp. 100.000.000 (100.000 dalam database))' as Keterangan    
+FROM view_L2_Blok6 
+WHERE (((b6r621_1>100000) OR (b6r621_2>100000) OR (b6r621_3>100000) OR (b6r621_4>100000) OR (b6r621_5>100000) OR (b6r621_6>100000) OR (b6r621_7>100000) OR (b6r621_8>100000) OR (b6r621_9>100000) OR (b6r621_10>100000) OR (b6r621_11
+    >100000) OR (b6r621_12>100000)))
+ORDER by prov, kab, kec, desa, id_ruta, b3r301, b6r603, b6r621_1, b6r621_2, b6r621_3, b6r621_4, b6r621_5, b6r621_6, b6r621_7, b6r621_8, b6r621_9, b6r621_10, b6r621_11, b6r621_12 asc 
+
+"
+,
+68. Blok VI: Pengecekan Nilai Produksi Sangat Rendah,"/*Nilai produksi sangat rendah < Rp. 10.000 (10 dalam database)*/
+/*Pengecekan Nilai Produksi Sangat Rendah*/
+/*Perlu konfirmasi, karena nilai produksi sangat rendah (< Rp. 10.000 (10 dalam database))*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301, status_dok, b6r601, b6r602, b6r603, b6r621_1, b6r621_2, b6r621_3, b6r621_4, b6r621_5, b6r621_6, b6r621_7, b6r621_8, b6r621_9, b6r621_10, b6r621_11, b6r621_12, b11_catatan, 'Perlu konfirmasi, 
+    karena nilai produksi sangat rendah (< Rp. 10.000 (10 dalam database))' as Keterangan
+FROM view_L2_Blok6 
+WHERE (((b6r621_1<10) OR (b6r621_2<10) OR (b6r621_3<10) OR (b6r621_4<10) OR (b6r621_5<10) OR (b6r621_6<10) OR (b6r621_7<10) OR (b6r621_8<10) OR (b6r621_9<10) OR (b6r621_10<10) OR (b6r621_11<10) OR (b6r621_12<10)))
+ORDER by prov, kab, kec, desa, id_ruta, b3r301, b6r603, b6r621_1, b6r621_2, b6r621_3, b6r621_4, b6r621_5, b6r621_6, b6r621_7, b6r621_8, b6r621_9, b6r621_10, b6r621_11, b6r621_12 asc 
+
+"
+,
+69. Blok VI: Pengecekan Kesesuaian R602 dan R603,"/*Jika R602 dan R603 tidak sesuai dengan ST2023-KODE*/
+/*Pengecekan Kesesuaian R602 dan R603*/
+/*Perbaiki r602 dan r603 sesuai ST2023-KODE*/
+
+SELECT prov, kab, kec, desa, id_ruta, b3r301,status_dok, b6r601, b6r602, b6r603, b11_catatan, 'Perbaiki r602 dan r603 sesuai ST2023-KODE' as Keterangan    
+FROM view_L2_Blok6 
+WHERE ( 
+(
+(b6r603='4101' and UPPER(TRIM(b6r602)) not like UPPER('%kerbau%potong%')) OR 
+(b6r603='4102' and UPPER(TRIM(b6r602)) not like UPPER('%kuda%')) OR
+(b6r603='4103' and UPPER(TRIM(b6r602)) not like UPPER('%sapi%perah%')) OR
+(b6r603='4104' and UPPER(TRIM(b6r602)) not like UPPER('%sapi%potong%')) OR
+"
+,
+70. Blok VII: Bukan Komoditas Budidaya tanaman kehutanan,"/*Pengecekan kode komoditas kehutanan terutama kode komoditas tanaman kehutanan lainnya (6199) yang bukan merupakan cakupan sektor kehutanan*/
+SELECT id, id_art, id_ruta, prov, kab, kec, desa, status_dok, b7r702, b7r703 
+FROM view_L2_Blok7A 
+WHERE ((b7r703  LIKE '%99%'))
+"
+,
+71. Blok VII: Bukan Komoditas Penangkaran Tumbuhan dan Satwa Liar,"/*Pengecekan kode komoditas kehutanan terutama kode komoditas penangkaran tumbuhan liar lainnya (6399) dan atau satwa liar lainnya (6249 dan 6299) yang bukan merupakan cakupan sektor kehutanan*/
+SELECT id, id_ruta, id_art, prov, kab, kec, desa, status_dok, b7r722, b7r723 
+FROM view_L2_Blok7B 
+WHERE ((b7r723  LIKE '%49%') or (b7r723  LIKE '%99%')  )
+"
+,
+72. Blok VII: Bukan Komoditas Penangkapan Perburuan Satwa dan Pemungutan Hasil Hutan,"/*Pengecekan kode komoditas kehutanan terutama kode komoditas penangkapan/perburuan satwa liar lainnya (6299) dan pemungutan hasil hutan lainnya (6499) yang bukan merupakan cakupan sektor kehutanan*/
+SELECT id, id_ruta, id_art, prov, kab, kec, desa, status_dok, b7r732, b7r733 ,b7r734
+FROM view_L2_Blok7C 
+WHERE ((b7r733  LIKE '%99%'))
+"
+,
+73. Blok VII: Kewajaran Harga Satuan Budidaya Tanaman Kehutanan,"/*Pengecekan kewajaran harga per unit satuan (r715_1dibagi 714_1) komoditas tanaman kehutanan hasil usaha budidaya tanaman kehutanan yang >= 10.000 atau < 10*/
+SELECT id, id_art, id_ruta, prov, kab, kec, desa, b7r702, b7r703, status_dok, b7r712,b7r713,b7r714, b7r715 ,b7r715/b7r714 as ""harga persatuan""
+FROM view_L2_Blok7A 
+WHERE ((b7r715/b7r714 >= '10000') OR ((b7r715/b7r714>'0') and (b7r715/b7r714<'10')))
+"
+,
+74. Blok VII: Kewajaran Nilai Ijon/Tebas Budidaya Tanaman kehutanan,"/*Pengecekan kewajaran nilai ijon/tebas yang diatas >=100.000 atau < 10*/
+SELECT id, id_art, id_ruta, status_dok, prov, kab, kec, desa, b7r702, b7r703, b7r716 
+FROM view_L2_Blok7A 
+WHERE ((b7r716>='100000') or (b7r716 < '10' and b7r716 > '0'))
+"
+,
+75. Blok VII: Kewajaran Harga Satuan Pembibitan Tanaman Kehutanan,"/*Pengecekan kewajaran harga per unit satuan (r718 dibagi 717) komoditas tanaman kehutanan hasil usaha pembibitan tanaman kehutanan yang > =200*/
+SELECT id, id_art, id_ruta, status_dok, prov, kab, kec, desa, b7r702, b7r703, b7r717, b7r718 ,b7r718/b7r717 as ""harga persatuan""
+FROM view_L2_Blok7A 
+WHERE ((b7r718/b7r717 >= '200'))
+"
+,
+76. Blok VII: Kewajaran Harga Satuan Penangkaran Tumbuhan dan Satwa Liar,"/*Pengecekan kewajaran harga per unit satuan (r728_1 dibagi 727_1) komoditas satwa/tumbuhan liar hasil usaha penangkaran < 10 atau  >= 10.000*/
+SELECT id, id_art, id_ruta, status_dok, prov, kab, kec, desa, b7r722, b7r723, b7r727, b7r728 ,b7r728/b7r727 as ""harga persatuan""
+FROM view_L2_Blok7B
+WHERE ((b7r728/b7r727 >= '10000') or (b7r728/b7r727 >'0' and b7r728/b7r727 <'10'))
+"
+,
+77. Blok VII: Kewajaran Harga Satuan Penangkapan Perburuan Satwa dan Pemungutan Hasil Hutan,"/*Pengecekan kewajaran harga per unit satuan (r737 dibagi 736) komoditas kehutanan hasil usaha pemungutan hasil hutan dan atau penangkapan dan perburuan satwa liar < 10 atau >=10.000 */
+SELECT id, id_art, id_ruta, status_dok, prov, kab, kec, desa, b7r732, b7r733, b7r734, b7r735, b7r736, b7r737, b7r737/b7r736 as ""harga persatuan""
+FROM view_L2_Blok7C
+WHERE ((b7r737/b7r736 >= '10000') or (b7r737/b7r736>'0' and b7r737/b7r736<'10'))
+"
+,
+78. Blok VII: Kewajaran Nilai Produksi Ikutan Budidaya Tanaman Kehutanan,"/*Pengecekan kewajaran nilai produksi ikutan kegiatan usaha budidaya tanaman kehutanan r720a atau 720b >=50.000 atau (<10 dan >0)*/
+SELECT id, id_art, id_ruta, prov, kab, kec, desa, status_dok, b7r720_1, b7r720_2
+FROM view_L2_Blok2 
+WHERE ((b7r720_1>= '50000') or (b7r720_1>'0' and b7r720_1<'10') or (b7r720_2>= '50000') or (b7r720_2>'0' and b7r720_2<'10'))
+"
+,
+79. Blok VII: Kewajaran Nilai Produksi Ikutan Penangkaran Tumbuhan dan Satwa Liar,"/*Pengecekan kewajaran nilai produksi ikutan kegiatan penangkaran tumbuhan/satwa liar r730>=50.000 atau (<10 dan >0)*/
+SELECT id, id_art, id_ruta, prov, kab, kec, desa, status_dok, b7r730
+FROM view_L2_Blok2 
+WHERE ((b7r730 >= '50000') or (b7r730>'0' and b7r730<'10'))
+"
+,
+80. Blok VII: Kewajaran Nilai Produksi Ikutan Penangkapan Perburuan Satwa dan Pemungutan Hasil Hutan,"/*Pengecekan kewajaran nilai produksi ikutan kegiatan usaha pemungutan hasil hutan hasil hutan, perburuan dan atau penangkapan satwa liar r 739 >=50.000  atau (<10 dan >0)*/
+SELECT id, id_art, id_ruta, prov, kab, kec, desa, status_dok, b7r739 
+FROM view_L2_Blok2 
+WHERE ((b7r739 >= '50000') or (b7r739>'0' and b7r739<'10'))
+"
+,
+"81. Blok VII: Isian kode rincian 701 Usaha Budidaya Tanaman Kehutanan, 721 Penangkaran Tumbuhan dan Satwa Liar, dan 731 Produksi Ikutan Penangkapan Perburuan Satwa dan Pemungutan Hasil Hutan","/*Pengecekan kelengkapan r702 dan r703*/
+SELECT id, id_art, id_ruta, prov, kab, kec, desa, status_dok, b7r702, b7r703 
+FROM view_L2_Blok7A 
+WHERE ((b7r702  IS NULL and b7r703  IS NOT NULL) or (b7r702  IS not NULL and b7r703  IS NULL))
+"
+,
+"82. Blok VII: Konsistensi Jumlah Tanaman kehutanan, Sistem Penanaman dan Lahan Kegiatan Kehutanan","/*Jumlah  total tanaman budidaya kehutanan  >= 1000 , R705=1(sistem penanaman tunggal), tetapi tidak ada lahan kegiatan kehutanan*/
+SELECT A.prov, A.kab, A.kec, A.desa, A.id, A.id_ruta, A.id_art, A.status_dok, b7r705, 
+ISNULL(b7r707,0)+ISNULL(b7r708,0)+ISNULL(b7r709,0)+ISNULL(b7r710,0) AS total_tanaman, B.b3r319_total
+FROM view_L2_Blok7A A
+JOIN view_L2_Blok2 B
+ON A.prov=B.prov AND A.kab=B.kab AND A.kec=B.kec AND A.desa=B.desa AND A.id=B.id AND A.id_ruta=B.id_ruta AND A.id_art=B.id_art
+WHERE (ISNULL(b7r707,0)+ISNULL(b7r708,0)+ISNULL(b7r709,0)+ISNULL(b7r710,0) >= 1000) AND b7r705='1' AND (B.b3r319_total IS NULL OR B.b3r319_total = 0)
+"
+,
+83. Blok VII: Pengecekan kelengkapan r702 dan r703,"/*Pengecekan kelengkapan r702 dan r703*/
+SELECT id, id_art, id_ruta, prov, kab, kec, desa, status_dok, b7r702, b7r703 
+FROM view_L2_Blok7A 
+WHERE ((b7r702  IS NULL and b7r703  IS NOT NULL) or (b7r702  IS not NULL and b7r703  IS NULL))
+"
+,
+84. Blok VII: Pengecekan kelengkapan r722 dan r723,"/*Pengecekan kelengkapan r722 dan r723*/
+SELECT id, id_art, id_ruta, prov, kab, kec, desa, status_dok, b7r722, b7r723 
+FROM view_L2_Blok7B 
+WHERE ((b7r722  IS NULL and b7r723  IS NOT NULL) or (b7r722  IS not NULL and b7r723  IS NULL))
+"
+,
+85. Blok VII: Pengecekan kelengkapan r732 dan r733,"/*Pengecekan kelengkapan r732 dan r733*/
+SELECT id, id_art, id_ruta, prov, kab, kec, desa, status_dok, b7r732, b7r733 
+FROM view_L2_Blok7C 
+WHERE ((b7r732  IS NULL and b7r733  IS NOT NULL) or (b7r732  IS not NULL and b7r733  IS NULL))
+"
+,
+86. Blok VIII: 802_cek deskripsi nama ikan lainnya,"/*Periksa kesesuaian deskripsi R802 pada R803 kode jenis ikan lainnya (ST2023-Kode = 5194, 5199, 5225, 5299, 5375, 5399, 5453). Masih ditemukan R802 yang berisi deskripsi nama ikan nasional yang ada kode spesifiknya di ST2023-Kode.
+*/
+SELECT prov, kab, kec, desa, id, id_ruta, id_art, b8r802,b8r803, status_dok
+FROM view_L2_Blok8
+WHERE b8r803 IN ('5194', '5199', '5225', '5299', '5375', '5399', '5453') AND b8r802 IN (SELECT deskripsi FROM Master_R802 WHERE Master_R802.deskripsi NOT LIKE '%LAINNYA%')
+"
+,
+87. Blok VIII: 802_cek deskripsi nama ikan lainnya > 1,"/*satu baris deskripsi jenis ikan lainnya pada R802 (ST2023-Kode = 5194, 5199, 5225, 5299, 5375, 5399, 5453) terisi beberapa deskripsi nama jenis ikan, seharusnya satu baris R802 hanya berisi 1 jenis ikan.*/
+SELECT prov, kab, kec, desa, id, id_art, id_ruta, status_dok, b8r801, b8r802, b8r803 
+FROM view_L2_Blok8 
+WHERE (b8r801 = '1' AND (b8r803 = '5194' OR b8r803 = '5199' OR b8r803 = '5225' OR b8r803 = '5299' OR b8r803 = '5375' OR b8r803 = '5399' OR 
+b8r803 = '5453') AND (b8r802 LIKE '%dan%' OR b8r802 LIKE '%,%' OR b8r802 LIKE '%.%'))
+"
+,
+88. Blok VIII: 806_cek luas baku budidaya ikan,"/*Periksa kewajaran luas baku wadah budidaya (r806). Dikatakan kurang wajar jika:
+ - Batas bawah : r806 < 2 meter2 
+ - Batas atas : r806 > 200.000 meter (20 hektar)*/
+SELECT prov, kab, kec, desa, id, id_art, id_ruta, status_dok, b8r806 
+FROM view_L2_Blok8 
+WHERE (( b8r806 < '2' or b8r806 > '200000' ))
+"
+,
+89. Blok VIII: 812_cek volume produksi per siklus per luas baku,"/*Periksa kewajaran volume produksi per siklus per luas baku (r812 : r809 : r806). Dikatakan kurang wajar jika:
+A. PEMBESARAN (kg) 
+batas bawah = (r812 : r809 : r806) < 1 kg/m2/siklus
+batas atas = (r812 : r809 : r806) > 50 kg/m2/siklus*/
+SELECT prov, kab, kec, desa, id, id_art, id_ruta, status_dok, b8r802, b8r803, b8r804, b8r806, b8r809, b8r812, b8r812/b8r809/b8r806 as provitas_per_siklus 
+FROM view_L2_Blok8 
+WHERE ((b8r804 < '4' and ( b8r812/b8r809/b8r806 < '1' or b8r812/b8r809/b8r806 > '50')))
+"
+,
+90. Blok VIII: 809_cek siklus panen setahun,"/*cek kewajaran siklus panen setahun menurut jenis ikan yg diusahakan. List kewajaran siklus panen budidaya ikan:
+nama_ikan, batas_bawah, batas_atas
+Bandeng, 1, 4
+Baung, 1, 3
+Bawal, 1, 3
+Betok, 1, 4
+Betutu, 1, 1
+Gabus, 1, 3
+Toman, 1, 1.5
+Gurami/gurame, 1, 2
+Lele, 1, 5
+Mas, 1, 4
+"
+,
+91. Blok VIII: 814_cek harga ikan budidaya per satuan,"/*Periksa kewajaran harga ikan (R814 X 1000 : R812) per kg atau per ekor menurut jenis ikan masing-masing. Dikatakan kurang wajar jika:
+A. PEMBESARAN IKAN KONSUMSI AIR LAUT DAN AIR PAYAU (r804 = 1 atau 2)
+batas bawah: (R814 X 1000 : R812) < Rp 1.000
+batas atas: (R814 X 1000 : R812) > Rp 500.000
+B. PEMBESARAN IKAN KONSUMSI AIR TAWAR (r804 = 3)
+batas bawah: (R814 X 1000 : R812) < Rp 5.000
+batas atas: (R814 X 1000 : R812) > Rp 200.000
+C. PEMBENIHAN IKAN KONSUMSI/IKAN HIAS (r804 = 4 atau 5)
+batas bawah: (R814 X 1000 : R812) < Rp 10
+batas atas: (R814 X 1000 : R812) > Rp 5.000.000*/
+/* Periksa kewajaran harga ikan (R814 X 1000 : R812) per kg atau per ekor menurut jenis ikan masing-masing */
+SELECT A.*
+"
+,
+92. Blok VIII: 813_cek satuan produksi,"/*Jika jenis kegiatan (R804) = 1, 2, atau 3, maka satuan produksi (R813) harus = 1.kg.
+Jika jenis kegiatan (R804) = 4 atau 5, maka satuan produksi (R813) harus = 2.ekor (KHUSUS R802 = rumput laut, jika r804 = 4, maka R813 harus = 1.kg).*/
+SELECT prov, kab, kec, desa, id, id_art, id_ruta, status_dok, b8r804, b8r813 
+FROM view_L2_Blok8 
+WHERE ((( b8r804 = '1' or b8r804 = '2' or b8r804 = '3' ) and ( b8r813 = '2' )))
+UNION
+SELECT prov, kab, kec, desa, id, id_art, id_ruta, status_dok, b8r804, b8r813 
+FROM view_L2_Blok8 
+WHERE ((( b8r804 = '4' or b8r804 = '5' ) and ( b8r813 = '1' )))
+"
+,
+93. Blok VIII: 806_cek luas baku banding total penggunaan lahan budidaya ikan r320,"/*Jika jenis wadah (R805) = 4 (tambak), 5 (kolam), atau 9 (lainnya), maka total luas penggunaan lahan budidaya ikan (R320_total) harus >= luas baku wadah budidaya (R806)*/
+SELECT prov, kab, kec, desa, id, id_art, id_ruta, status_dok, b9r901c_1, b9r901c_2, b9r901c_3 
+FROM view_L2_Blok2 
+WHERE (b9r901c_1 > '10000000' or b9r901c_2 > '10000000' or b9r901c_3 > '10000000' or b9r901c_1 < '30' or b9r901c_2 < '30' or b9r901c_3 < '30')
+"
+,
+94. Blok VIII: 822_cek rata-rata GT kapal,"/*Periksa kewajaran rata-rata GT per kapal (R822 : R821), dikatakan kurang wajar jika :
+-batas bawah (R822 : R821) < 1 GT
+-batas atas (R822 : R821) > 55 GT*/
+SELECT prov, kab, kec, desa, id, id_art, id_ruta, status_dok, b8r822_a1/b8r821_a1 as GT_kapalmotorA, b8r822_a2/b8r821_a2 as GT_motortempelA, b8r822_b1/b8r821_b1 as GT_kapalmotorB, b8r822_b2/b8r821_b2 as GT_motortempelB
+FROM view_L2_Blok2 
+WHERE ((b8r822_a1/b8r821_a1 < 1 or b8r822_a1/b8r821_a1 > 55) or (b8r822_a1/b8r821_a2 < 1 or b8r822_a1/b8r821_a2 > 55) or (b8r822_b1/b8r821_b1 < 1 or b8r822_b1/b8r821_b1 > 55) or (b8r822_b2/b8r821_b2 < 1 or b8r822_b2/b8r821_b2 > 55))
+"
+,
+95. Blok VIII: 823_cek alat tangkap ikan banding GT kapal,"/*1. Jika Jenis Kapal (R819) = 1 atau 2 (kapal motor atau perahu motor tempel), maka Periksa kewajaran Alat penangkapan Ikan (R823) dengan rata-rata GT Kapal (R822:R821), sesuai Kepmen KP No. 59 Tahun 2020 Tentang Jalur Penangkapan Ikan 
+    dan Alat Penangkapan Ikan.
+2. Jika R819 berkode 3 (perahu tanpa motor) maka Alat Penangkapan Ikan harus sesuai perahu yang digunakan.*/
+/* Periksa kewajaran Alat penangkapan Ikan (R823) dengan jenis kapal (R819) dan rata-rata GT Kapal (R822 dibagi R821), sesuai Kepmen KP No 59 Tahun 2020 Tentang Jalur Penangkapan Ikan dan Alat Penangkapan Ikan */
+SELECT a.prov, a.kab, a.kec, a.desa, a.id, a.id_art, a.id_ruta, a.status_dok, a.b8r819_a1, b8r822_a1/b8r821_a1 AS Gross_tonnage_a1, a.b8r823_a1, b.deskripsi
+FROM view_L2_Blok2 AS a, Master_AlatPenangkapanIkan AS b
+WHERE a.b8r819_a1 = '1' AND a.b8r823_a1 = b.kode AND ((a.b8r823_a1 = 3 AND b8r822_a1/b8r821_a1 < 31) OR (a.b8r823_a1 = 4 AND b8r822_a1/b8r821_a1 > 5) OR (a.b8r823_a1 = 6 AND b8r822_a1/b8r821_a1 < 31) OR (a.b8r823_a1 = 10 AND b8r822_a1
+    /b8r821_a1 > 10))
+"
+,
+96. Blok VIII: 826_cek harga ikan tangkap per satuan,"/*Periksa kewajaran harga ikan per kg (R826*1000)/(R825) menurut jenis usaha penangkapannya (R818), sesuai Kepmen KP no. 21 tahun 2023 tentang harga acuan ikan.
+
+Jika R818 = A atau B : 
+Batas bawah: (R826 x 1000 : R825) < Rp 500/Kg
+Batas atas : (R826 x 1000 : R825) > Rp 350 ribu/Kg*/
+SELECT prov, kab, kec, desa, id, id_art, id_ruta, status_dok, b8r826_a1, b8r826_a2, b8r826_a3, b8r826_a4, b8r825_a1, b8r825_a2, b8r825_a3, b8r825_a4,
+       b8r826_a1*1000/b8r825_a1 as harga_a1, b8r826_a2*1000/b8r825_a2 as harga_a2, b8r826_a3*1000/b8r825_a3 as harga_a3, b8r826_a4*1000/b8r825_a4 as harga_a4
+FROM view_L2_Blok2 
+WHERE (((b8r826_a1*1000/b8r825_a1<'500' or b8r826_a2*1000/b8r825_a2<'500' or b8r826_a3*1000/b8r825_a3<'500' or b8r826_a4*1000/b8r825_a4<'500' 
+        or b8r826_a1*1000/b8r825_a1>'350000'or b8r826_a2*1000/b8r825_a2>'350000' or b8r826_a3*1000/b8r825_a3>'350000' or b8r826_a4*1000/b8r825_a4>'350000')))
+"
+,
+97. Blok VIII: 825_cek volume produksi banding GT,"/*Periksa kewajaran R825 volume tangkapan sesuai R822 total GT kapal.
+
+Volume tangkapan per trip (R825/1000) dalam satuan Ton dikatakan kurang wajar, jika: 
+- Batas bawah : ((R825)/1000:R822) < 0,0001
+- Batas atas : ((R825)/1000:R822) > 1,5*/
+/*BATAS BAWAH:*/
+SELECT prov, kab, kec, desa, id, id_art, id_ruta, status_dok, device, b8r817, b8r822_a1, b8r825_a1, 1.0*b8r825_a1/b8r822_a1 AS volum_gt_a1, 
+b8r822_a2, b8r825_a2, 1.0*b8r825_a2/b8r822_a2 AS volum_gt_a2, b8r822_b1, b8r825_b1, 1.0*b8r825_b1/b8r822_b1 AS volum_gt_b1, 
+b8r822_b2, b8r825_b2, 1.0*b8r825_b2/b8r822_b2 AS volum_gt_b2
+FROM view_L2_Blok2 
+WHERE (b8r817 = '1' AND (1.0*b8r825_a1/b8r822_a1 < 0.0001 OR 1.0*b8r825_a2/b8r822_a2 < 0.0001 OR 1.0*b8r825_b1/b8r822_b1 < 0.0001 OR 1.0*b8r825_b2/b8r822_b2 < 0.0001))
+UNION
+"
+,
+98. Blok VIII: 827_wpp_laut_darat,"/*Periksa kewajaran kode WPP sesuai dengan daftar WPP pada Master Kode ST2023:
+- Jika R818 kode A dan R819 berkode 1,2,atau 3, maka R822 seharusnya kode WPP selain PD (WPPNRI 571 s.d. WPPNRI 718, LL SH, LL SP)
+- Jika R818 berkode B dan R819 berkode 1,2,atau 3, maka R822 seharusnya berkode WPP PD (WPPNRI PD 411 s.d. WPPNRI PD 439)*/
+SELECT prov, kab, kec, desa, id, id_art, id_ruta, status_dok, device, b8r818_a, b8r827_a1, b8r827_a2, b8r827_a3
+FROM view_L2_Blok2
+WHERE (b8r818_a = '1' AND (b8r827_a1 IS NOT NULL AND b8r827_a1 NOT LIKE '%WPPNRI 5%' AND b8r827_a1 NOT LIKE '%WPPNRI 7%' AND b8r827_a1 NOT LIKE '%LL%')) 
+OR (b8r818_b = '1' AND (b8r827_b1 IS NOT NULL AND b8r827_a1 NOT LIKE '%WPPNRI PD 4%'))
+
+"
+,
+99. Blok IX: 901c_cek nilai pendapatan jasa pertanian,"/*Pendapatan UTP jasa pertanian (R901c) dikatakan tidak wajar, jika:
+-Batas bawah  <= Rp 30 ribu
+-Batas atas >= Rp 10 miliar*/
+SELECT prov, kab, kec, desa, id, id_art, id_ruta, status_dok, b9r901c_1, b9r901c_2, b9r901c_3 
+FROM view_L2_Blok2 
+WHERE (b9r901c_1 > '10000000' or b9r901c_2 > '10000000' or b9r901c_3 > '10000000' or b9r901c_1 < '30' or b9r901c_2 < '30' or b9r901c_3 < '30')
+"
+,
+100. Blok IX: Pengecekan kewajaran isian bibit rekayasa genetika,"/*Pengecekan kewajaran isian 902b1, 902b_2, 902b3, atau 902b_4 yang berkode 1*/
+SELECT prov, kab, kec, desa, id, id_ruta, id_art, status_dok, b9r902b_1, b9r902b_2, b9r902b_3, b9r902b_4, b11_catatan 
+FROM view_L2_Blok2 
+WHERE ((b9r902b_1 = '1' or b9r902b_2 = '1' or b9r902b_3 = '1' or b9r902b_4 = '1'))
+"
+,
+101. Blok X: Konsistensi R1002a dan R1002b,"/*Pengecekan keterkaitan antara R1002b dengan R1002a, R1002b_1 s.d R1002b_5 ada yang terisi tapi R1002a berkode 2 atau R1002b_1 s.d R1002b_5 ada yang blank tapi R1002a berkode 1*/
+SELECT prov, kab, kec, desa, id, id_ruta, b10r1002a,
+b10r1002b_1,b10r1002b_2,b10r1002b_3,b10r1002b_4,b10r1002b_5,status_dok
+FROM view_L2_Blok2
+WHERE b10r1002a='1' AND (b10r1002b_1 = '2' AND b10r1002b_2 = '2' AND b10r1002b_3 = '2' AND b10r1002b_4 = '2' AND b10r1002b_5 = '2')
+UNION
+SELECT prov, kab, kec, desa, id, id_ruta, b10r1002a,
+b10r1002b_1,b10r1002b_2,b10r1002b_3,b10r1002b_4,b10r1002b_5,status_dok
+FROM view_L2_Blok2
+WHERE b10r1002a='1' AND (b10r1002b_1 IS NULL OR b10r1002b_2 IS NULL OR b10r1002b_3 IS NULL OR b10r1002b_4 IS NULL OR b10r1002b_5 IS NULL 
+OR b10r1002b_1='' OR b10r1002b_2='' OR b10r1002b_3='' OR b10r1002b_4='' OR b10r1002b_5='')
+"
+,
+102. Blok X: Konsistensi R1002a dan R1002c,"/*Pengecekan keterkaitan antara R1002c dengan R1002a, R1002c_1 s.d R1002c_6 ada yang terisi tapi R1002a berkode 2 atau R1002c_1 s.d R1002c_6 ada yang blank tapi R1002a berkode 1*/
+SELECT prov, kab, kec, desa, id, id_ruta, b10r1002a,
+b10r1002c_1,b10r1002c_2,b10r1002c_3,b10r1002c_4,b10r1002c_5,b10r1002c_6,status_dok
+FROM view_L2_Blok2
+WHERE b10r1002a='1' AND (b10r1002c_1 = '2' AND b10r1002c_2 = '2' AND b10r1002c_3 = '2' AND b10r1002c_4 = '2' AND b10r1002c_5 = '2' AND b10r1002c_6 = '2')
+UNION
+SELECT prov, kab, kec, desa, id, id_ruta, b10r1002a,
+b10r1002c_1,b10r1002c_2,b10r1002c_3,b10r1002c_4,b10r1002c_5,b10r1002c_6,status_dok
+FROM view_L2_Blok2
+WHERE b10r1002a='1' AND (b10r1002c_1 IS NULL OR b10r1002c_2 IS NULL OR b10r1002c_3 IS NULL OR b10r1002c_4 IS NULL OR b10r1002c_5 IS NULL OR b10r1002c_6 IS NULL)
+"
+,
+103. Blok X: Konsistensi R1002a dan R1002d,"/*Pengecekan keterkaitan antara R1002d dengan R1002a, R1002d_1 s.d R1002d_4 adayang terisi tapi R1002a berkode 2 atau R1002d_1 s.d R1002d_4 ada yang blank tapi R1002a berkode 1*/
+SELECT prov, kab, kec, desa, id, id_ruta, b10r1002a,
+b10r1002d_1,b10r1002d_2,b10r1002d_3,b10r1002d_4,status_dok
+FROM view_L2_Blok2
+WHERE b10r1002a='1' AND (b10r1002d_1 = '2' AND b10r1002d_2 = '2' AND b10r1002d_3 = '2' AND b10r1002d_4 = '2')
+UNION
+SELECT prov, kab, kec, desa, id, id_ruta, b10r1002a,
+b10r1002d_1,b10r1002d_2,b10r1002d_3,b10r1002d_4,status_dok
+FROM view_L2_Blok2
+WHERE b10r1002a='1' AND (b10r1002d_1 IS NULL OR b10r1002d_2 IS NULL OR b10r1002d_3 IS NULL OR b10r1002d_4 IS NULL)
+"

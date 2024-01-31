@@ -17,7 +17,7 @@ db = mysql.connector.connect(
     database="scrap_berita"
 )
 
-PATCH = 'D:\AMAGHFIRA\python-project\scrap_news\chromedriver108.exe'
+PATCH = 'D:\AMAGHFIRA\python-project\scrap_news\chromedriver110.exe'
 
 def wait_element(d, time, sel):
     element = WebDriverWait(d, time).until(EC.presence_of_element_located((By.CSS_SELECTOR, sel)))
@@ -30,9 +30,13 @@ driver = webdriver.Chrome(PATCH,chrome_options=options)
 driver.get("https://kompas.com")
 time.sleep(3)  
 
-# ARRAY OF KEYWORDS 
+# ARRAY OF KEYWORDS (change keywords here)
 keywords = [
-    "ekspor kaltim"
+    # "wisata kalimantan timur",
+    "MICE kalimantan timur",
+    # "hotel kalimantan timur",
+    "transportasi kalimantan timur",
+    "angkutan udara kalimantan timur"
 ]
 
 # FIND SEARCH COLUMN  
@@ -51,7 +55,7 @@ for word in keywords :
     print('jumlah halaman: '+str(len(pages)))
     
     # LOOP THROUGH PAGES 
-    for i in range(2,len(pages)):
+    for i in range(1,len(pages)-3):
         j = str(i)
         print('halaman ke- '+j)
         # ENTER EACH PAGE 
@@ -84,7 +88,7 @@ for word in keywords :
                 
                 # INSERT INTO DB 
                 mycursor = db.cursor()
-                query = "INSERT INTO berita_20230111(judul,tanggal,isi,sumber) VALUES (%s,%s,%s,%s)"
+                query = "INSERT INTO berita_20230227(judul,tanggal,isi,sumber) VALUES (%s,%s,%s,%s)"
                 val = (judul,tanggal,isi,sumber)
                 mycursor.execute(query,val)
                 db.commit()
@@ -93,6 +97,7 @@ for word in keywords :
                 driver1.close()
             except NoSuchElementException:
                 pass
+    driver.close()
 
 print("Data berhasil disimpan KE DATABASE")
 driver.close()
